@@ -1,0 +1,375 @@
+To Install (from source)
+========================
+
+Linux
+-----
+
+Before installing, you will need::
+
+  python 2.x, where x is the latest version, put python in your path
+  GTK+ 2.x, where x is the latest version
+  GTKGLExt (latest version for GTK+ 2.x)
+  libgle3
+  
+You will also need the following python modules (via your packaging
+system, easy_install, or pip) and all their underlying dependencies::
+
+  numpy (python-numpy)
+  PyOpenGL (python-opengl)
+  pygtk (python-gtk2)
+  pygtkglext (python-gtkglext1)
+  PIL (python-imaging)
+  reportlab (python-reportlab)
+
+These are the Python Packaging Index names.  Linux package manager
+names follow in parantheses.
+
+From an xterm::
+
+  tar xvzf cbmodel-ver.tar.gz (where ver is the version number)
+  cd cbmodel-ver (where ver is the version number)
+  python setup.py install --prefix=/usr/local (as root)
+
+You will find relevant files at::
+
+  prefix/bin/cbmodel (executable)
+  prefix/share/doc (documentation)
+  prefix/share/doc/examples (examples)
+
+If you want to try out the program before installing (the python
+setup.py step), from cbmodel-ver::
+
+  ./cbmodel
+
+Call it with the -a argument, if you lack a numeric keypad.
+
+OS X
+----
+
+Before installing, you will need::
+
+  Xcode x, where x is the latest version for your system
+  XQuartz x, where x is the latest version for your system
+  
+Then, you must choose a package management system that puts Unix
+programs on a Mac.  Macports and Homebrew are the most popular, but
+there are others.  Once you successfully install a package menagement
+system, you will need::
+
+  python 2.x, where x is the latest version, put python in your path
+  GTK+ 2.x, where x is the latest version
+  GTKGLExt (latest version for GTK+ 2.x)
+
+You will also need the following python modules (via your packaging
+system, easy_install, or pip) and all their underlying dependencies::
+
+  numpy
+  pyopengl
+  pygtk
+  pygtkglext
+  PIL or pillow
+  reportlab
+
+From a terminal::
+
+  tar xvzf cbmodel-ver.tar.gz (where ver is the version number)
+  cd cbmodel-ver (where ver is the version number)
+  python setup.py install --prefix=/usr/local (as root)
+
+You will find relevant files at::
+
+  prefix/bin/cbmodel (executable)
+  prefix/share/doc (documentation)
+  prefix/share/doc/examples (examples)
+
+If you want to try out the program before installing (the python
+setup.py step), from cbmodel-ver::
+
+  ./cbmodel
+
+Call it with the -a argument, if you lack a numeric keypad.
+
+Windows
+-------
+
+Before installing, you will need::
+
+  python 2.x, where x is the latest version, put python in your path
+  GTK+ 2.x, where x is the latest version
+  GTKGLExt (latest version for GTK+ 2.x)
+  
+You will also need the following python modules (via your packaging
+system, easy_install, or pip) and all their underlying dependencies::
+
+  numpy
+  PyOpenGL
+  pygtk
+  pygtkglext
+  PIL
+  reportlab
+
+These are the Python Packaging Index names.
+
+Windows users will find all these dependencies except numpy, PIL, and
+reportlab available in a pre-compiled binary at
+http://pycam.sourceforge.net/download.html.  Choose the "Requirement
+Installer" link.
+
+Extract the archive using your favorite extraction tool (e.g. 7zip) to
+C:\Program Files\CBModel, or wherever you want.
+
+Create a shortcut to C:\Program Files\CBModel\cbmodel.py with the
+following values::
+
+  General - Opens with: python.exe (in your python path)
+  Shortcut - Target: "C:\Program Files\CBModel\cbmodel.py"
+           - Start in: "C:\Program Files\CBModel"
+
+Append " -a" to Target, if you lack a numeric keypad.
+
+To Operate
+==========
+
+Consult cbmodel.pdf
+
+To Build (only for developers)
+==============================
+
+Update components with modifications to MANIFEST.in and setup.py.  Then::
+
+  python setup.py sdist (Source)
+
+This creates a source distribution, and it's the only one we'll use.
+Users unable to follow the install from source steps ought to use the
+precompiled binaries.
+
+Linux Binaries (Debian-based)
+-----------------------------
+
+Make sure you have created and tried a working installation from
+source.  Before creating the .deb file, install::
+
+  python-stdeb (I used version 0.6)
+  dpkg-deb
+  fakeroot
+
+Now, from the cbmodel directory, create a source distribution::
+
+  py2dsc --workaround-548392 False -x stdeb.cfg dist/cbmodel-ver.tar.gz (where ver is the version number)
+
+Unfortunately, we cannot immediately create the .deb file, because the
+default compresses files in the /usr/share/doc directory.  To override
+the compression, edit deb_dist/cbmodel_ver/debian/rules (where ver is
+the version number) and add the following two lines::
+
+override_dh_compress:
+	dh_compress -X.cbm -X.pdf
+
+Make sure you use a tab on the second line, not spaces.  Now, create
+the .deb file::
+
+  cd deb_dist/cbmodel-ver (where ver is the version number)
+  dpkg-buildpackage -rfakeroot -uc -us
+  cd ..
+
+You should see the .deb file.  You may view its information with::
+
+  dpkg-deb -I cbmodel_ver-1_all.deb (where ver is the version number)
+
+and, you may install it with::
+
+  dpkg -i cbmodel_ver-1_all.deb
+
+stdeb has a command that merges the source build and .deb build, but
+it hung on me.
+
+The .deb file may be of limited use.  It worked on Debian 5.0, 6.0,
+and 7.0.  It failed on Ubuntu 12.04 because glDrawPixels for the depth
+buffer was broken.  It seems the developer test suites don't catch all
+bugs.  We cannot be expected to fix all underlying package errors.
+
+OS X Binaries
+-------------
+
+Make sure you have a working installation from source.  Before
+creating the self-extractable .app, you will need::
+
+  PyInstaller (I used version 2.1)
+
+PyInstaller expects a .spec file.  In cbmodel-ver, copy
+cbmodel_osx.spc to cbmodel.spec.  Edit cbmodel.spec and change::
+
+ * pathex to the complete path of your cbmodel-ver directory
+
+Then, run pyinstaller::
+
+  pyinstaller cbmodel.spec
+
+You can check the build with::
+
+  cd dist/cbmodel
+  ./cbmodel
+
+where cbmodel is a file in that directory.  The directory size is
+large.  Modest attempts to prune libraries failed.
+
+You may start from scratch by running pyinstaller on cbmodel.py::
+
+  pyinstaller -w cbmodel.py
+
+This will create a first attempt at a binary.  It will be faulty, but
+it will create a cbmodel.spec file, which can be modified for correct
+installation.  The .spec file had to be heavily modified for correct
+operation::
+
+  * A reportlab hidden import was added.
+
+  * A runtime hook called osx_rthook.py was added to set up proper gtk
+    environment variables and file locations.  osx_rthook.py shouldn't
+    need to be changed.
+
+  * osx_loaders.cache, osx_pangorc, osx_pango.modules, and
+    osx_pangox.aliases were added as data_files.  osx_loaders.cache is
+    generated by gdk-pixbuf-query-loaders > osx_loaders.cache.  Then,
+    edit osx_loaders.cache, replacing the long path with nothing.
+    osx_pango.modules is generated by pango-querymodules >
+    osx_pango.modules.  Then, edit osx_pango.modules, replacing the
+    long path with nothing.  osx_pango.aliases is found at
+    /usr/local/etc/pango, or something like that.  osx_pangorc
+    shouldn't need to be changed.
+
+  * libpixbufloader-* were added as binaries.
+
+  * 1.8.0/modules/pango-* were added as binaries.
+
+  * cbmodel data_files were added as demonstrated more verbosely in
+    the Windows Binaries section.
+
+As you debug your cbmodel.spec, don't run pyinstaller on cbmodel.py
+again; otherwise, you'll lose your cbmodel.spec.  Instead, use the
+original form::
+
+  pyinstaller cbmodel.spec
+
+Once you have a working cbmodel application from PyInstaller, try the
+.app version by::
+
+  cd dist
+  open cbmodel.app
+
+*Note:* An OS X open on a .app file does not allow specifying the
+start directory.  This was fixed by using sys._MEIPASS in
+osx_rthook.py and an os.chdir command in the beginning of cbmodel.py.
+Gimp cannot easily convert to .icns.  On a Mac, drag symbol.png into
+the IconComposer to create the symbol.icns file.
+
+Once your .app works, turn it into a disk image from the dist
+directory with::
+
+  hdiutil create ./cbmodel.dmg -srcfolder cbmodel.app -ov
+
+Windows Binaries
+----------------
+
+Make sure you have a working installation from source.  Before
+creating the self-extractable .exe, you will need::
+
+  PyInstaller (I used version 1.5.1)
+  Inno Setup (I used version 5)
+
+PyInstaller expects a .spec file.  In C:\Program Files\CBModel, copy
+cbmodel_win32.spc to cbmodel.spec.  Edit cbmodel.spec and change::
+
+ * pathex to your pyinstaller location
+
+ * all C:/Program Files/CBModel (either slash direction) to your
+   cbmodel install location
+
+Then, change to the pyinstaller directory and run pyinstaller on it::
+
+  python pyinstaller.py C:\Program Files\CBModel\cbmodel.spec
+
+You can check the build with::
+
+  cd C:\Program Files\CBModel\dist\cbmodel
+  cbmodel
+
+where cbmodel is an .exe file in that directory.  The directory size is
+large.  Modest attempts to prune libraries failed.
+
+If you're using a newer version of PyInstaller, you may want to start
+PyInstaller on cbmodel.py instead::
+
+  python pyinstaller.py C:\Program Files\CBModel\cbmodel.py
+
+This will create a first attempt at a binary.  It will be faulty, but
+it will create a cbmodel.spec file, which can be modified for correct
+installation.  Under PyInstaller 1.5.1, the data files and opengl .dll
+files had to be added to the auto-generated cbmodel.spec file::
+
+  # Adapted from setup.py
+  base_dir = 'C:/Program Files/CBModel'
+  docs = ['README', 'LICENSE', 'cbmodel.pdf']
+  shares = ['logo_white.png', 'logo_black.png', 'logo_install.bmp', 'symbol.png', 'symbol.ico', 'mirror.png', 'xhair.png', 'masses.csv', 'prices.csv']
+  data_files = Tree(os.path.join(base_dir, 'icons'), prefix='icons') + \
+               Tree(os.path.join(base_dir, 'helps'), prefix='helps') + \
+               Tree(os.path.join(base_dir, 'examples'), prefix='examples') + \
+               [(x, os.path.join(base_dir, x), 'DATA') for x in docs] + \
+               [(x, os.path.join(base_dir, x), 'DATA') for x in shares]
+
+  a.binaries = a.binaries + [
+      ('opengl32.dll', 'c:/Windows/System32/opengl32.dll', 'BINARY'),
+      ('glu32.dll', 'c:/Windows/System32/glu32.dll', 'BINARY'),
+      ('gle32.dll', 'c:/Python25/Lib/site-packages/OpenGL/DLLS/gle32.dll', 'BINARY'),
+      ('glut32.dll', 'c:/Python25/Lib/site-packages/OpenGL/DLLS/glut32.dll', 'BINARY')]
+
+  coll = COLLECT( exe, data_files,
+                 a.binaries, ...
+
+You may find the .dll files in different places.  As you debug your
+cbmodel.spec, don't run pyinstaller on cbmodel.py again; otherwise,
+you'll lose your cbmodel.spec.  Instead, use the original form::
+
+  python pyinstaller.py C:\Program Files\CBModel\cbmodel.spec
+
+Once you have a working cbmodel.exe from PyInstaller, run the Inno
+Setup Compiler from the Start Menu.  From Inno Setup, open C:\Program
+Files\CBModel\cbmodel.iss.  Now, Build - Compile.  At the end, you
+should see an Output directory created in C:\Program Files\CBModel and
+the Install_CBModel executable in it.  If your install directory
+differs from C:\Program Files\CBModel, change your Source location in
+cbmodel.iss *before* compiling.
+
+To Build the Documentation (only for developers)
+================================================
+
+You will need a fairly full version of LaTeX installed.  Adjust
+cbmodel.tex as needed, then::
+
+  pdflatex cbmodel.tex
+
+To Generate Icons (only for developers)
+=======================================
+
+  python display_pieces.py
+  File - Generate (menu)
+
+To Generate Helps (only for developers)
+=======================================
+
+  python display_helps.py
+  File - Generate (menu)
+
+Development
+===========
+
+We plan to migrate from GTK to Qt sometime in the future.  This should
+avoid the gtkglext issues on Windows and Linux and open up the
+modeller for hand-held devices.  Therefore, don't spend your efforts
+improving the GTK interface.
+
+The code is messy.  It was developed over a 10-year period.  Variable
+naming is inconsistent, pep compliance is non-existent, and too much
+is done in each line.  It needs cleaning.
+
+We need a thorough test suite.

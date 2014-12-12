@@ -1,0 +1,21 @@
+Metadata-Version: 1.1
+Name: cbmodel
+Version: 1.00
+Summary: Crossbeams Modeller
+Home-page: https://crossbeamstoy.com
+Author: Seven:Twelve Engineering LLC
+Author-email: contact@seventwelveengineering.com
+License: UNKNOWN
+Description: Crossbeams Modeller allows you to rapidly
+        develop Crossbeams models in a virtual environment.  Quickly connect,
+        delete, duplicate, mirror, translate, rotate, break, and rejoin
+        multiple pieces for rapid design.  When you're satisfied with the
+        model, enter the Instruction environment and generate step-by-step
+        Instructions for others to duplicate your work.
+Platform: UNKNOWN
+Requires: numpy
+Requires: OpenGL
+Requires: gtk
+Requires: gtk.gtkgl
+Requires: PIL
+Requires: reportlab

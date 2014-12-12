@@ -1,0 +1,14 @@
+# Base Installation
+global-exclude *
+include README LICENSE cbmodel.pdf 
+include instructions.py base_pieces.py pieces.py vector_math.py cbmodel.py logo_white.png logo_black.png symbol.png mirror.png xhair.png scale.png masses.csv prices.csv cbmodel
+recursive-include icons *
+#recursive-include ogl_drawings * # Uncomment for render mode
+recursive-include examples *
+recursive-include helps *
+
+# Additional Helps
+include cbmodel.tex # documentation source
+recursive-include doc_images *.png # documentation images
+include display_pieces.py display_helps.py setup.py MANIFEST.in stdeb.cfg cbmodel.iss cbmodel_win32.spc cbmodel_osx.spc logo_install.bmp symbol.ico symbol.icns osx_loaders.cache osx_pango.modules osx_pangorc osx_pangox.aliases osx_rthook.py # installation/documentation aids
+
