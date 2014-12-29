@@ -176,6 +176,7 @@ def left_arrow(xtip, ytip, tail = 4.0):
     """
     Creates a left-pointing arrow
     """
+    """
     global ppu
 
     dx = 1.0
@@ -195,69 +196,172 @@ def left_arrow(xtip, ytip, tail = 4.0):
     glEnd()
     glEnable(GL_LIGHTING)
     glColor3f(1.0, 1.0, 1.0)
+    """
+
+    arrow3d([((xtip+tail)*pieces.sf, ytip*pieces.sf, 0.0),
+             (xtip*pieces.sf, ytip*pieces.sf, 0.0)])
+
+def arrow3d(tail, rad = 0.4, dx = 2.0, dy = 1.0):
+    """
+    Creates a 3d arrow.  tail is a poly.  The last point in the poly
+    is the arrow tip.
+
+    dx is length of tip
+    dy is width of tip
+    """
+    
+    np_tail = np.array(tail)
+    dt = -vector_math.normalize(np_tail[1] - np_tail[0])
+    dh = vector_math.normalize(np_tail[-1] - np_tail[-2])
+    cylpts = np.concatenate(([dt + tail[0]], tail[:-1], [-pieces.sf*dx*dh+tail[-1], tail[-1]]))
+    #print cylpts
+
+    conepts = np.array((tail[-1]-dh-dx*dh, tail[-1]-dx*pieces.sf*dh, tail[-1], tail[-1] + dh))
+    #print conepts
+
+    glColor3f(1.0, 0.8, 0.0) # construction yellow
+    glePolyCylinder(cylpts, None, rad*pieces.sf)
+    glePolyCone(conepts, None, (dy*pieces.sf, dy*pieces.sf, dy/10*pieces.sf, dy/10*pieces.sf))
+    glColor3f(1.0, 1.0, 1.0)
 
 def set_size(x, y):
     pass
 
-def help_joining1():
+def help_bad_connection(widget = None):
     global crops
 
-    view_joining()
+    sep = pieces.len1/4
 
-    join2f = pieces.join2flat()
-    straight2 = pieces.straight2()
-    
+    view_good_bad([pieces.len1/2 + sep/2, -pieces.len1/2-sep/2, 0.0])
+
+    j = pieces.join2()
+    s = pieces.straight1()
+
+    # Structure 1
     glPushMatrix()
-    glTranslatef(-pieces.join_len -5.0*pieces.sf, 0.0, 0.0)
-    join2f.shape(locked = 0)
+    glRotatef(180.0, 1.0, 0.0, 0.0)
+    j.shape()
     glPopMatrix()
 
     glPushMatrix()
-    glTranslatef(4.4*pieces.sf + 5.0*pieces.sf, 0.0, 0.0)
-    straight2.shape()
+    glTranslatef(pieces.join_len, 0.0, 0.0)
+    s.shape()
     glPopMatrix()
 
-    # Not quite right
     glPushMatrix()
-    glRotatef(0.0, 1.0, 0.0, 0.0)
-    left_arrow(0.0, 0.0, tail=2.0)
+    glRotatef(-90.0, 0.0, 0.0, 1.0)
+    glTranslatef(pieces.join_len, 0.0, 0.0)
+    s.shape()
     glPopMatrix()
 
-def help_joining2():
+    glPushMatrix()
+    glTranslatef(0.0, -pieces.len1, 0.0)
+    glRotatef(90.0, 0.0, 0.0, 1.0)
+    glRotatef(180.0, 1.0, 0.0, 0.0)
+    j.shape()
+    glPopMatrix()
+
+    glPushMatrix()
+    glTranslatef(pieces.len1, 0.0, 0.0)
+    glRotatef(-90.0, 0.0, 0.0, 1.0)
+    glRotatef(180.0, 1.0, 0.0, 0.0)
+    j.shape()
+    glPopMatrix()
+
+    # Structure 2
+    glPushMatrix()
+    glTranslatef(pieces.len1 + sep, -sep, 0.0)
+    glRotatef(-90.0, 0.0, 0.0, 1.0)
+    glTranslatef(pieces.join_len, 0.0, 0.0)
+    s.shape()
+    glPopMatrix()
+
+    glPushMatrix()
+    glTranslatef(pieces.len1 + sep, -pieces.len1-sep, 0.0)
+    glRotatef(180.0, 0.0, 0.0, 1.0)
+    glRotatef(180.0, 1.0, 0.0, 0.0)
+    j.shape()
+    glPopMatrix()
+
+    glPushMatrix()
+    glTranslatef(pieces.join_len + sep, -pieces.len1-sep, 0.0)
+    s.shape()
+    glPopMatrix()
+
+    # Arrows
+    arrow_sep = 4.0*pieces.sf
+    arrow3d([(pieces.len1 - pieces.base_rad + sep - arrow_sep, -pieces.base_rad-pieces.join_len-arrow_sep-sep, 0.0), (pieces.len1 - pieces.base_rad + sep - arrow_sep, -pieces.base_rad-pieces.join_len-arrow_sep, 0.0)])
+    arrow3d([(pieces.join_len+2*sep, -pieces.len1 + pieces.base_rad+arrow_sep - sep, 0.0), (pieces.join_len+sep, -pieces.len1+pieces.base_rad+arrow_sep - sep, 0.0)])
+
+    crops = [(0, 0, image_size[0], image_size[1])]
+
+def help_good_connection(widget = None):
     global crops
 
-    view_joining()
+    sep = pieces.len1/4
 
-    join2f = pieces.join2flat()
-    straight2 = pieces.straight2()
+    view_good_bad([pieces.len1/2 + sep/2, -pieces.len1/2, 0.0])
+
+    j = pieces.join2()
+    s = pieces.straight1()
+
+    # Structure 1
+    glPushMatrix()
+    glRotatef(180.0, 1.0, 0.0, 0.0)
+    j.shape()
+    glPopMatrix()
+
+    glPushMatrix()
+    glRotatef(-90.0, 0.0, 0.0, 1.0)
+    glTranslatef(pieces.join_len, 0.0, 0.0)
+    s.shape()
+    glPopMatrix()
+
+    glPushMatrix()
+    glTranslatef(0.0, -pieces.len1, 0.0)
+    glRotatef(90.0, 0.0, 0.0, 1.0)
+    glRotatef(180.0, 1.0, 0.0, 0.0)
+    j.shape()
+    glPopMatrix()
+
+    # Structure 2
+    glPushMatrix()
+    glTranslatef(pieces.join_len + sep, 0.0, 0.0)
+    s.shape()
+    glPopMatrix()
+
+    glPushMatrix()
+    glTranslatef(pieces.len1 + sep, 0.0, 0.0)
+    glRotatef(-90.0, 0.0, 0.0, 1.0)
+    glRotatef(180.0, 1.0, 0.0, 0.0)
+    j.shape()
+    glPopMatrix()
+
+    glPushMatrix()
+    glTranslatef(pieces.len1 + sep, 0.0, 0.0)
+    glRotatef(-90.0, 0.0, 0.0, 1.0)
+    glTranslatef(pieces.join_len, 0.0, 0.0)
+    s.shape()
+    glPopMatrix()
+
+    glPushMatrix()
+    glTranslatef(pieces.len1 + sep, -pieces.len1, 0.0)
+    glRotatef(180.0, 0.0, 0.0, 1.0)
+    glRotatef(180.0, 1.0, 0.0, 0.0)
+    j.shape()
+    glPopMatrix()
+
+    glPushMatrix()
+    glTranslatef(pieces.join_len + sep, -pieces.len1, 0.0)
+    s.shape()
+    glPopMatrix()
+
+    # Arrows
+    arrow_sep = 4.0*pieces.sf
+    arrow3d([(pieces.join_len+sep, -pieces.base_rad-arrow_sep, 0.0), (pieces.join_len, -pieces.base_rad-arrow_sep, 0.0)])
+    arrow3d([(pieces.join_len+sep, -pieces.len1 + pieces.base_rad+arrow_sep, 0.0), (pieces.join_len, -pieces.len1+pieces.base_rad+arrow_sep, 0.0)])
     
-    glPushMatrix()
-    glTranslatef(-pieces.join_len, 0.0, 0.0)
-    join2f.shape(locked = 0)
-    glPopMatrix()
-
-    glPushMatrix()
-    glTranslatef(0.0, 0.0, 0.0)
-    straight2.shape()
-    glPopMatrix()
-
-def help_joining3():
-    global crops
-
-    view_joining()
-
-    join2f = pieces.join2flat()
-    straight2 = pieces.straight2()
-    
-    glPushMatrix()
-    glTranslatef(-pieces.join_len, 0.0, 0.0)
-    join2f.shape()
-    glPopMatrix()
-
-    glPushMatrix()
-    glTranslatef(0.0, 0.0, 0.0)
-    straight2.shape()
-    glPopMatrix()
+    crops = [(0, 0, image_size[0], image_size[1])]
 
 def help_couplergear_axle1sgear_axle1s(widget = None):
     global crops
@@ -959,7 +1063,7 @@ def screen_capture(filename, background = 0):
         im = Image.fromstring('RGBA', (width, height), data)
 
     im = im.transpose(Image.FLIP_TOP_BOTTOM)
-    im = instructions_outline(im, 4, (0, 0, 0), expand = 0)
+    im = instructions_outline(im, 2, (0, 0, 0), expand = 0)
 
     for crop in crops:
         print 'crop', crop
@@ -976,7 +1080,9 @@ def generate_helps(widget = None):
 
     screen_capture_path = 'helps/'
 
-    for to_draw in ['help_couplergear_axle1sgear_axle1s',
+    for to_draw in ['help_bad_connection',
+                    'help_good_connection',
+                    'help_couplergear_axle1sgear_axle1s',
                     'help_couplerstraight1m1gear_axle1s',
                     'help_couplergear_axle2sgear_axle1s',
                     'help_couplergear_axle2sstraight1m1',
@@ -1061,10 +1167,10 @@ def view_standard():
     dist = 100.0
     gluLookAt(dist*math.sin(angle), 0.0, dist*math.cos(angle), 0.0, 0.0, 0.0, 0.0, 1.0, 0.0)
 
-def view_joining():
+def view_good_bad(center):
     global image_size, ppu
 
-    ppu = 40.0
+    ppu = 10.0
     glMatrixMode(GL_PROJECTION)
     glLoadIdentity()
     glViewport(0, 0, image_size[0], image_size[1])
@@ -1079,7 +1185,7 @@ def view_joining():
     glMatrixMode(GL_MODELVIEW)
 
     dist = 30.0
-    gluLookAt(dist*math.sqrt(0.2), -dist*math.sqrt(0.2), dist*math.sqrt(0.6), 0.0, 0.0, 0.0, -math.sqrt(0.5), math.sqrt(0.5), 0.0)
+    gluLookAt(center[0]+dist*math.sqrt(0.2), center[1]-dist*math.sqrt(0.2), center[2]+dist*math.sqrt(0.6), center[0], center[1], center[2], -math.sqrt(0.5), math.sqrt(0.5), 0.0)
 
 def opengl_expose(widget = None, event = None):
     global views, glarea, draw_called, to_draw
@@ -1125,20 +1231,15 @@ if __name__ == '__main__':
 
     file_container = gtk.Menu()
 
-    file_joining1 = gtk.MenuItem('joining1')
-    file_joining1.connect('activate', draw_help, 'help_joining1')
-    file_joining1.show()
-    file_container.append(file_joining1)
+    file_bad_connection = gtk.MenuItem('bad_connection')
+    file_bad_connection.connect('activate', draw_help, 'help_bad_connection')
+    file_bad_connection.show()
+    file_container.append(file_bad_connection)
 
-    file_joining2 = gtk.MenuItem('joining2')
-    file_joining2.connect('activate', draw_help, 'help_joining2')
-    file_joining2.show()
-    file_container.append(file_joining2)
-
-    file_joining3 = gtk.MenuItem('joining3')
-    file_joining3.connect('activate', draw_help, 'help_joining3')
-    file_joining3.show()
-    file_container.append(file_joining3)
+    file_good_connection = gtk.MenuItem('good_connection')
+    file_good_connection.connect('activate', draw_help, 'help_good_connection')
+    file_good_connection.show()
+    file_container.append(file_good_connection)
 
     file_couplergear_axle1sgear_axle1s = gtk.MenuItem('couplergear_axle1sgear_axle1s')
     file_couplergear_axle1sgear_axle1s.connect('activate', draw_help, 'help_couplergear_axle1sgear_axle1s')
@@ -1272,12 +1373,13 @@ if __name__ == '__main__':
     menubar.append(file_menu)
 
     glconfig = gtk.gdkgl.Config(mode=gtk.gdkgl.MODE_RGB | gtk.gdkgl.MODE_DEPTH | gtk.gdkgl.MODE_SINGLE | gtk.gdkgl.MODE_ALPHA)
-    glarea = gtk.gtkgl.DrawingArea(glconfig, direct = False)
+    glarea = gtk.gtkgl.DrawingArea(glconfig, direct = True)
     glarea.connect('realize', opengl_init)
     glarea.connect('expose-event', opengl_expose)
-
     gtk.gtkgl.widget_set_gl_capability(glarea, glconfig)
     glarea.show()
+    glarea.set_size_request(image_size[0], image_size[1])
+
     vbox1.pack_start(glarea)
 
     pieces.init('.')

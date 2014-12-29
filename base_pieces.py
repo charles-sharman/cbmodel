@@ -1024,7 +1024,7 @@ class module(object):
                     del inst['draw_old_parts_from']
                 self.instructions.append(inst)
                 line_number = line_number + 1
-            if self.instructions[0].has_key('hold_pose'):
+            if len(self.instructions) > 0 and self.instructions[0].has_key('hold_pose'):
                 self.hold_pose = 1
 
         if self.instruction_start <= 0:

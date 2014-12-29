@@ -127,6 +127,10 @@ version 1.00 changes to 07/09/14
   buffer.
 - Added the Navigation with Numpad or Alphas options
 - Added OSX compatibility
+version 1.01 changes to 12/29/14
+- Connection added to helps, front page
+- Fixed load bug on models with no instructions
+- Fixed TypeError in fuzzy_frame call for later PIL versions
 
 Conventions
 -----------
@@ -219,7 +223,7 @@ import pieces
 import vector_math
 import instructions
 
-version = '1.00' # Change also in setup.py
+version = '1.01' # Change also in setup.py, cbmodel.tex
 
 piece_aliases = [('anglep5xp5', 'angle1x1', '1x1'),
                  ('angle1xp5', 'angle2x1', '2x1'),

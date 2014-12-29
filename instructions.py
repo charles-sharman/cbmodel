@@ -304,6 +304,19 @@ def draw_title(pdf, cover_image, logo_image, dimensions, author, num_pieces, tit
             pdf.drawString(x0, y0, title[:index].upper())
             y0 = y0 - title_font[1]
             pdf.drawString(x0, y0, title[index+1:].upper())
+    # Draw Legal Jargon
+    pdf.setFont(term_font[0], term_font[1])
+    pdf.setStrokeColorRGB((annotate_color[0]+background_color[0])/2, (annotate_color[1]+background_color[1])/2, (annotate_color[2]+background_color[2])/2)
+    pdf.setFillColorRGB((annotate_color[0]+background_color[0])/2, (annotate_color[1]+background_color[1])/2, (annotate_color[2]+background_color[2])/2)
+    if rotated:
+        x0 = 72*(cover_y0 + paper_size[1]/2)
+        y0 = 72*(-cover_x0 - paper_size[0] + 0.5*BLOCK_BOTTOM_MARGIN) - term_font[1]/2
+    else:
+        x0 = 72*(cover_x0 + paper_size[0]/2)
+        y0 = 72*(cover_y0 + 0.5*BLOCK_BOTTOM_MARGIN) - term_font[1]/2
+    pdf.drawCentredString(x0, y0, 'WARNING: Handle responsibly.  Age 13+')
+    pdf.setStrokeColorRGB(annotate_color[0], annotate_color[1], annotate_color[2])
+    pdf.setFillColorRGB(annotate_color[0], annotate_color[1], annotate_color[2])
 
     # Restore Rotation
     if rotated:
@@ -496,22 +509,27 @@ def generate_instructions(screen, share_directory, filename, scale = 1.0):
         pdf.setFont(inventory_font[0], inventory_font[1])
 
         xhalf = 72*(screen.MARGIN_SIZE+screen.FRAME_SIZE[0]+screen.SEP_SIZE)
-        yhalf = 72*(screen.MARGIN_SIZE+screen.FRAME_SIZE[1]+screen.SEP_SIZE)
-        xcenter = 72*(screen.MARGIN_SIZE+screen.FRAME_SIZE[0]+screen.SEP_SIZE/2+0.5/72) # 0.5/72 for line thickness
-        ycenter = 72*(screen.MARGIN_SIZE+screen.FRAME_SIZE[1]+screen.SEP_SIZE/2+0.5/72) # 0.5/72 for line thickness
+        xcenter = 72*screen.PAPER_SIZE[0]/2
+        frame_size_third = (screen.PAPER_SIZE[1] - 2*screen.MARGIN_SIZE-2*screen.SEP_SIZE)/3.0
+        y1 = 72*(screen.MARGIN_SIZE+frame_size_third+screen.SEP_SIZE)
+        y2 = 72*(screen.MARGIN_SIZE+2*frame_size_third+screen.SEP_SIZE)
         width_half = 72*screen.FRAME_SIZE[0]
         width_full = 72*screen.COVER_SIZE[0]
-        height_half = 72*screen.FRAME_SIZE[1]
+        height_third = 72*frame_size_third
         height_full = 72*screen.COVER_SIZE[1]
-        widths = [width_half, width_half, width_full]
-        heights = [height_half, height_half, height_half]
-        positions = [(margin, yhalf), (xhalf, yhalf), (margin, margin)]
-        images = ['joint_asmbly1.png',
-                  'joint_asmbly2.png',
-                  'joint_asmbly3.png']
+        widths = [width_half, width_half, width_full, width_half, width_half]
+        heights = [height_third, height_third, height_third, height_third, height_third]
+        positions = [(margin, y2), (xhalf, y2), (margin, y1), (margin, margin), (xhalf, margin)]
+        images = ['help_joining1.png',
+                  'help_joining2.png',
+                  'help_joining3.png',
+                  'help_bad_connection.png',
+                  'help_good_connection.png']
         captions = ['Slide beam into joint.',
                     'Twist ring 45 degrees.',
-                    'When the marks align, you\'re done!']
+                    'When the marks align, you\'re done!',
+                    'Wrong\nConnecting/Disconnecting Two Directions',
+                    'Right\nConnecting/Disconnecting One Direction']
         for frame, position, in enumerate(positions):
             width = widths[frame]
             height = heights[frame]
@@ -519,33 +537,40 @@ def generate_instructions(screen, share_directory, filename, scale = 1.0):
             image = Image.open(os.path.join(share_directory, 'helps', images[frame]))
             image = fill_background(image, background_color255)
             xsize, ysize = image.size
-            yscale = float(height) / ysize
-            cropx = int((xsize - width / yscale) / 2.0)
-            #if frame == len(images)-1:
-            #    cropy = 2*inventory_font[1]
-            #    position = (position[0], position[1] + cropy)
-            #else:
-            #    cropy = 0
-            cropy = 0
-            image = image.crop((cropx, cropy/yscale, xsize - cropx, ysize))
-            pdf.drawInlineImage(fuzzy_frame(image, FADE/screen.ps_scale*screen.PS_SCALE, DPI, screen.background_color), position[0], position[1]+cropy, scale*image.size[0], scale*image.size[1])
-            if frame == len(images)-1:
+            x0 = 0
+            y0 = 0
+            if frame >= 3: # Raise The Connection ones a bit higher because of the two-line caption
+                y0 = y0 + 3.6*inventory_font[1]
+            else:
+                yscale = float(height) / ysize
+                cropx = int((xsize - width / yscale) / 2.0)
+                #cropy = 2*inventory_font[1] / scale
+                #y0 = y0 + 2*inventory_font[1]
+                cropy = 0
+                y0 = 0
+                image = image.crop((cropx, cropy, xsize - cropx, ysize))
+            pdf.drawInlineImage(fuzzy_frame(image, int(FADE/screen.ps_scale*screen.PS_SCALE), DPI, screen.background_color), position[0]+x0, position[1]+y0, scale*image.size[0], scale*image.size[1])
+            if frame == 2:
                 x0 = position[0] + 0.25*width
+                #x0 = position[0] + width/2
             else:
                 x0 = position[0] + width/2
-            pdf.drawCentredString(x0, position[1]+part_font[1]*1.2, captions[frame])
+            caption_lines = captions[frame].split('\n')[::-1]
+            for count, caption_line in enumerate(caption_lines):
+                pdf.drawCentredString(x0, position[1]+(count+1)*inventory_font[1]*1.2, caption_line)
             #draw_outlined_text(pdf, inventory_font, (position[0] + width/2 - 0.5*pdf.stringWidth(captions[frame]), position[1]+part_font[1]*1.2), captions[frame])
             
         # Done Frame's annotations
-        pdf.drawCentredString(xcenter - 0.10*width, ycenter - 0.21*height, 'Mark')
-        pdf.drawCentredString(xcenter, ycenter - 0.31*height, 'Mark')
+        pdf.drawCentredString(xcenter - 0.08*widths[2], y2 - 0.15*heights[2], 'Mark')
+        pdf.drawCentredString(xcenter - 0.03*widths[2], y2 - 0.21*heights[2], 'Mark')
         #draw_outlined_text(pdf, inventory_font, (xcenter - 0.10*width - 0.5*pdf.stringWidth('Mark'), ycenter-0.21*height), 'Mark')
         #draw_outlined_text(pdf, inventory_font, (xcenter - 0.5*pdf.stringWidth('Tab'), ycenter - 0.31*height), 'Tab')
         #pdf.line(xcenter, ycenter + 72*screen.SEP_SIZE, xcenter, y0 - 72*screen.SEP_SIZE)
 
         # Frame's lines
-        pdf.line(xcenter, ycenter + 72*screen.SEP_SIZE, xcenter, ycenter + height_half)
-        pdf.line(xcenter - width_half, ycenter, xcenter + width_half, ycenter)
+        pdf.line(xcenter, y2 + 72*screen.SEP_SIZE, xcenter, y2 + height_third)
+        pdf.line(72*screen.MARGIN_SIZE, y2, 72*(screen.PAPER_SIZE[0]-screen.MARGIN_SIZE), y2)
+        pdf.line(72*screen.MARGIN_SIZE, y1, 72*(screen.PAPER_SIZE[0]-screen.MARGIN_SIZE), y1)
         pdf.showPage()
 
     def draw_frames(start_index, end_index, frame_type):
@@ -682,7 +707,7 @@ def generate_instructions(screen, share_directory, filename, scale = 1.0):
                     screen.toggle_frame(None, 0, 0) # Force another draw on frame resize to circumvent bug with glDrawPixels not taking effect quickly.  There should be a better way ***
                 pdf.setStrokeColorRGB(screen.annotate_color[0], screen.annotate_color[1], screen.annotate_color[2])
                 pdf.setFillColorRGB(screen.background_color[0], screen.background_color[1], screen.background_color[2])
-                pdf.drawInlineImage(fuzzy_frame(screen.screen_capture(), FADE, DPI, screen.background_color), position[0], position[1], width, height)
+                pdf.drawInlineImage(fuzzy_frame(screen.screen_capture(), int(FADE), DPI, screen.background_color), position[0], position[1], width, height)
                 #pdf.drawInlineImage(screen.screen_capture(), position[0], position[1], width, height)
 
                 if frame_type == 'frame':

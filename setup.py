@@ -19,7 +19,7 @@ data_files = [('share/doc/cbmodel', docs),
               ('share/cbmodel/icons', icons),
               ('share/cbmodel/helps', helps)]
 name = 'cbmodel'
-version = '1.00' # Change also in cbmodel.py
+version = '1.01' # Change also in cbmodel.py, cbmodel.tex
 
 if 0: # Change to 1 for render mode
     ogl_drawings = map(lambda x: 'ogl_drawings/' + x, os.listdir('ogl_drawings'))
