@@ -223,7 +223,7 @@ import pieces
 import vector_math
 import instructions
 
-version = '1.01' # Change also in setup.py, cbmodel.tex
+version = '1.02' # Change also in setup.py, cbmodel.tex
 
 piece_aliases = [('anglep5xp5', 'angle1x1', '1x1'),
                  ('angle1xp5', 'angle2x1', '2x1'),
@@ -404,9 +404,9 @@ class MainScreen(object):
                     'angle': (1.0, 1.0, 1.0),
                     'arc': (1.0, 1.0, 1.0),
                     'part': (0.0, 1.0, 0.0),
-                    'edit': (0.4, 0.6, 0.8),
+                    'edit': (0.45, 0.675, 0.9),
                     'outline': (0.0, 0.0, 0.0),
-                    'newpart': (0.4, 0.6, 0.8),
+                    'newpart': (0.45, 0.675, 0.9),
                     'futurepart': (0.33, 0.33, 0.33),
                     'tire': (0.33, 0.33, 0.33),
                     'wheel': (1.0, 1.0, 1.0),
@@ -1315,6 +1315,7 @@ class MainScreen(object):
         self.make_image('logo_black')
         self.make_image('mirror')
         self.make_image('magnify', 'xhair')
+        self.make_image('warning')
 
         # Help Sizes
         self.generate_help_sizes()
@@ -1650,7 +1651,7 @@ class MainScreen(object):
                     glDepthMask(GL_TRUE)
 
                 # Draw title
-                if self.total.frame == 0:
+                if self.total.frame == 0 and not self.omit_logo:
                     if len(self.total.instructions) > 0:
                         if self.total.instructions[0].has_key('title'):
                             glColor3fv(self.annotate_color)
@@ -1716,12 +1717,13 @@ class MainScreen(object):
                                     helper_labels.append(label)
                         yt = viewport[3] - FMS
                         sizes = []
-                        for helper_label in helper_labels:
-                            key = 'help_' + reduce(lambda x, y: x + y, helper_label)
-                            if key in self.help_sizes:
-                                text = reduce(lambda x, y: x + ' ' + y, map(lambda z: self.name2alias[z], helper_label))
-                                size = self.help_sizes[key]
-                                sizes.append((size[0], size[1], text))
+                        if not self.omit_logo:
+                            for helper_label in helper_labels:
+                                key = 'help_' + reduce(lambda x, y: x + y, helper_label)
+                                if key in self.help_sizes:
+                                    text = reduce(lambda x, y: x + ' ' + y, map(lambda z: self.name2alias[z], helper_label))
+                                    size = self.help_sizes[key]
+                                    sizes.append((size[0], size[1], text))
                         sizes.sort()
                         sizes.reverse()
                         for size in sizes:
@@ -1981,7 +1983,10 @@ class MainScreen(object):
             try:
                 fp = open(config_name, 'wb')
             except IOError:
-                self.status_bar.set_text('Warning: Can\'t write ' + config_name)
+                dialog2 = gtk.MessageDialog(self.win, 0, gtk.MESSAGE_WARNING, gtk.BUTTONS_OK, 'Can\'t write ' + config_name + '.  Check directory existence, permissions, or disk space.')
+                dialog2.show_all()
+                response = dialog2.run()
+                dialog2.destroy()
             if fp:
                 config.write(fp)
                 fp.close()
@@ -2075,7 +2080,10 @@ class MainScreen(object):
         elif sys.platform.startswith('darwin'):
             os.system('open ' + fullname)
         else:
-            self.status_bar.set_text('Warning: PDF viewer not found.')
+            dialog = gtk.MessageDialog(self.win, 0, gtk.MESSAGE_WARNING, gtk.BUTTONS_OK, 'PDF viewer unknown for ' + sys.platform + '.  Open your PDF viewer and read ' + fullname + '.')
+            dialog.show_all()
+            response = dialog.run()
+            dialog.destory()
 
     def about(self, widget):
         """
@@ -3059,7 +3067,7 @@ class MainScreen(object):
             if saveas:
                 self.current_filename = dialog.get_filename()
                 self.project_directory = dialog.get_current_folder()
-                dialog.destroy()
+            dialog.destroy()
             base, ext = os.path.splitext(self.current_filename)
             if (ext != '.jst') or (ext != '.cbm'):
                 ext = '.cbm'
@@ -3069,7 +3077,10 @@ class MainScreen(object):
             try:
                 fp = open(self.current_filename, 'w')
             except IOError:
-                self.status_bar.set_text('Warning: Can\'t write ' + self.current_filename)
+                dialog2 = gtk.MessageDialog(self.win, 0, gtk.MESSAGE_WARNING, gtk.BUTTONS_OK, 'Can\'t write ' + self.current_filename + '.  Check directory existence, permissions, or disk space.')
+                dialog2.show_all()
+                response = dialog2.run()
+                dialog2.destroy()
             if fp:
                 fp.write(self.total.write_netlist())
                 fp.close()
@@ -3127,7 +3138,10 @@ class MainScreen(object):
             try:
                 fp = open(base + '.csv', 'w')
             except IOError:
-                self.status_bar.set_text('Warning: Can\'t write ' + base + '.csv')
+                dialog = gtk.MessageDialog(self.win, 0, gtk.MESSAGE_WARNING, gtk.BUTTONS_OK, 'Can\'t write ' + base + '.csv.  Check directory existence, permissions, or disk space.')
+                dialog.show_all()
+                response = dialog.run()
+                dialog.destroy()
             if fp:
                 for label in labels:
                     fp.write(label[0] + ',' + str(label[1]) + '\n')
@@ -3176,7 +3190,10 @@ class MainScreen(object):
                 try:
                     fp = open(name, 'r')
                 except IOError:
-                    self.status_bar.set_text('Warning: Can\'t read ' + name)
+                    dialog2 = gtk.MessageDialog(self.win, 0, gtk.MESSAGE_WARNING, gtk.BUTTONS_OK, 'Can\'t read ' + name + '.  Check its existence and permissions.')
+                    dialog2.show_all()
+                    response = dialog2.run()
+                    dialog2.destroy()
 
                 if fp:
                     self.total.selected = []
@@ -3225,7 +3242,10 @@ class MainScreen(object):
             try:
                 fp = open(name, 'r')
             except IOError:
-                self.status_bar.set_text('Warning: Can\'t read ' + name)
+                dialog = gtk.MessageDialog(self.win, 0, gtk.MESSAGE_WARNING, gtk.BUTTONS_OK, 'Can\'t read ' + name + '.  Check its existence and permissions.')
+                dialog.show_all()
+                response = dialog.run()
+                dialog.destroy()
 
             if fp:
                 self.reshape_called = 0
@@ -3410,9 +3430,15 @@ class MainScreen(object):
             if os.environ.has_key('USERPROFILE'):
                 retval = os.path.join(os.environ['USERPROFILE'], 'AppData', 'cbmodel.ini')
             else:
-                print 'Define USERPROFILE environment variable for cbmodel.ini'
+                dialog = gtk.MessageDialog(self.win, 0, gtk.MESSAGE_WARNING, gtk.BUTTONS_OK, 'USERPROFILE environment variable not set.  Define USERPROFILE to specify the directory for storing cbmodel.ini')
+                dialog.show_all()
+                response = dialog.run()
+                dialog.destroy()
         else:
-            print 'Warning: Unknown platform', sys.platform
+            dialog = gtk.MessageDialog(self.win, 0, gtk.MESSAGE_WARNING, gtk.BUTTONS_OK, 'Configuration file location unknown for ' + sys.platform + '.  We won\'t store configuration data.')
+            dialog.show_all()
+            response = dialog.run()
+            dialog.destroy()
 
         if retval:
             path = os.path.dirname(retval)
@@ -3420,7 +3446,10 @@ class MainScreen(object):
                 try:
                     os.mkdir(path)
                 except:
-                    print 'Warning: Couldn\'t create', path
+                    dialog = gtk.MessageDialog(self.win, 0, gtk.MESSAGE_WARNING, gtk.BUTTONS_OK, 'Couldn\'t create ' + path + '.  We won\'t store configuration data.')
+                    dialog.show_all()
+                    response = dialog.run()
+                    dialog.destroy()
                     retval = ''
 
         return retval
@@ -3445,7 +3474,10 @@ class MainScreen(object):
             try:
                 fp = open(config_name, 'wb')
             except IOError:
-                print 'Warning: Can\'t write', config_name
+                dialog = gtk.MessageDialog(self.win, 0, gtk.MESSAGE_WARNING, gtk.BUTTONS_OK, 'Can\'t write ' + config_name + '.  Check directory existence, permissions, or disk space.')
+                dialog.show_all()
+                response = dialog.run()
+                dialog.destroy()
             if fp:
                 config.write(fp)
                 fp.close()

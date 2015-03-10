@@ -135,7 +135,8 @@ Consult cbmodel.pdf
 To Build (only for developers)
 ==============================
 
-Update components with modifications to MANIFEST.in and setup.py.  Then::
+Update components with modifications to MANIFEST.in, setup.py,
+cbmodel_win32.spc, and cbmodel_osx.spc.  Then::
 
   python setup.py sdist (Source)
 

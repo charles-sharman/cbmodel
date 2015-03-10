@@ -8,7 +8,7 @@ if sys.argv[1] != 'install':
     copy_file('cbmodel.py', 'cbmodel')
 
 docs = ['README', 'LICENSE', 'cbmodel.pdf']
-shares = ['instructions.py', 'base_pieces.py', 'pieces.py', 'vector_math.py', 'logo_white.png', 'logo_black.png', 'symbol.png', 'mirror.png', 'xhair.png', 'scale.png', 'masses.csv', 'prices.csv']
+shares = ['instructions.py', 'base_pieces.py', 'pieces.py', 'vector_math.py', 'logo_white.png', 'logo_black.png', 'symbol.png', 'mirror.png', 'xhair.png', 'scale.png', 'warning.png', 'masses.csv', 'prices.csv']
 icons = map(lambda x: 'icons/' + x, os.listdir('icons'))
 examples = map(lambda x: 'examples/' + x, os.listdir('examples'))
 helps = map(lambda x: 'helps/' + x, os.listdir('helps'))
@@ -19,7 +19,7 @@ data_files = [('share/doc/cbmodel', docs),
               ('share/cbmodel/icons', icons),
               ('share/cbmodel/helps', helps)]
 name = 'cbmodel'
-version = '1.01' # Change also in cbmodel.py, cbmodel.tex
+version = '1.02' # Change also in cbmodel.py, cbmodel.tex
 
 if 0: # Change to 1 for render mode
     ogl_drawings = map(lambda x: 'ogl_drawings/' + x, os.listdir('ogl_drawings'))

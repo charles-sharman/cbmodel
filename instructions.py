@@ -36,6 +36,8 @@ try:
 except:
     pdfcanvas = None
 
+warning = 'WARNING: Small parts.  Age 10+.  Handle responsibly.  Patent pending.'
+
 # Routines that may be useful as imports are placed here
 
 def color255(color):
@@ -172,7 +174,7 @@ def sizestr(dimensions, units):
     dimstr = format % tuple(map(lambda x: unit_types[units][0]*round(float(x), unit_types[units][1]), dimensions))
     return dimstr
 
-def draw_title(pdf, cover_image, logo_image, dimensions, author, num_pieces, title, paper_size, background_color, annotate_color, title_font, label_font, term_font, units, x0 = 0, y0 = 0, dpi = 300.0):
+def draw_title(pdf, cover_image, logo_image, warning_image, dimensions, author, num_pieces, title, paper_size, background_color, annotate_color, title_font, label_font, term_font, units, x0 = 0, y0 = 0, dpi = 300.0):
     """
     draws the title page
     """
@@ -314,7 +316,12 @@ def draw_title(pdf, cover_image, logo_image, dimensions, author, num_pieces, tit
     else:
         x0 = 72*(cover_x0 + paper_size[0]/2)
         y0 = 72*(cover_y0 + 0.5*BLOCK_BOTTOM_MARGIN) - term_font[1]/2
-    pdf.drawCentredString(x0, y0, 'WARNING: Handle responsibly.  Age 13+')
+    text = warning
+    space = 0.25*term_font[1]
+    warning_cover = fill_background(warning_image, background_color255)
+    text_width = pdf.stringWidth(text) + 72*warning_cover.size[0]/dpi + space
+    pdf.drawInlineImage(warning_cover, x0 - text_width/2, y0, 72*warning_cover.size[0]/dpi, 72*warning_cover.size[1]/dpi)
+    pdf.drawString(x0 - text_width/2 + 72*warning_cover.size[0]/dpi + space, y0, text)
     pdf.setStrokeColorRGB(annotate_color[0], annotate_color[1], annotate_color[2])
     pdf.setFillColorRGB(annotate_color[0], annotate_color[1], annotate_color[2])
 
@@ -906,7 +913,7 @@ def generate_instructions(screen, share_directory, filename, scale = 1.0):
     else:
         logo_color = 'white'
     pdf.rect(0, 0, 72*screen.PAPER_SIZE[0], 72*screen.PAPER_SIZE[1], fill = 1)
-    draw_title(pdf, im, screen.images['logo_' + logo_color]['im_print'], dimensions, author, num_pieces, title, screen.PAPER_SIZE, screen.background_color, screen.annotate_color, title_font, label_font, term_font, 'ft', 0, 0, screen.SCREEN_SCALE * screen.PS_SCALE)
+    draw_title(pdf, im, screen.images['logo_' + logo_color]['im_print'], screen.images['warning']['im_print'], dimensions, author, num_pieces, title, screen.PAPER_SIZE, screen.background_color, screen.annotate_color, title_font, label_font, term_font, 'ft', 0, 0, screen.SCREEN_SCALE * screen.PS_SCALE)
     pdf.showPage()
     screen.window_color(None, screen.PRINT_BODY_COLOR)
 

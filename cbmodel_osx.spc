@@ -16,7 +16,7 @@ exe = EXE(pyz,
 
 base_dir = '.'
 docs = ['README', 'LICENSE', 'cbmodel.pdf']
-shares = ['logo_white.png', 'logo_black.png', 'logo_install.bmp', 'symbol.png', 'symbol.ico', 'mirror.png', 'xhair.png', 'masses.csv', 'prices.csv']
+shares = ['logo_white.png', 'logo_black.png', 'logo_install.bmp', 'symbol.png', 'symbol.ico', 'mirror.png', 'xhair.png', 'scale.png', 'warning.png', 'masses.csv', 'prices.csv']
 gtks = ['osx_loaders.cache', 'osx_pangorc', 'osx_pango.modules', 'osx_pangox.aliases']
 data_files = Tree(os.path.join(base_dir, 'icons'), prefix='icons') + \
              Tree(os.path.join(base_dir, 'helps'), prefix='helps') + \

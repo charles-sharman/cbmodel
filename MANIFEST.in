@@ -1,7 +1,7 @@
 # Base Installation
 global-exclude *
 include README LICENSE cbmodel.pdf 
-include instructions.py base_pieces.py pieces.py vector_math.py cbmodel.py logo_white.png logo_black.png symbol.png mirror.png xhair.png scale.png masses.csv prices.csv cbmodel
+include instructions.py base_pieces.py pieces.py vector_math.py cbmodel.py logo_white.png logo_black.png symbol.png mirror.png xhair.png scale.png warning.png masses.csv prices.csv cbmodel
 recursive-include icons *
 #recursive-include ogl_drawings * # Uncomment for render mode
 recursive-include examples *

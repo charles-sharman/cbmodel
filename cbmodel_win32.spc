@@ -14,7 +14,7 @@ exe = EXE(pyz,
 # Adapted from setup.py
 base_dir = 'c:/Program Files/CBModel'
 docs = ['README', 'LICENSE', 'cbmodel.pdf']
-shares = ['logo_white.png', 'logo_black.png', 'logo_install.bmp', 'symbol.png', 'symbol.ico', 'mirror.png', 'xhair.png', 'masses.csv', 'prices.csv']
+shares = ['logo_white.png', 'logo_black.png', 'logo_install.bmp', 'symbol.png', 'symbol.ico', 'mirror.png', 'xhair.png', 'scale.png', 'warning.png', 'masses.csv', 'prices.csv']
 data_files = Tree(os.path.join(base_dir, 'icons'), prefix='icons') + \
              Tree(os.path.join(base_dir, 'helps'), prefix='helps') + \
              Tree(os.path.join(base_dir, 'examples'), prefix='examples') + \
