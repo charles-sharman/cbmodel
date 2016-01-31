@@ -1269,20 +1269,22 @@ class gear_axle2s(axle):
     query_options = [['Position 1', gear_list], ['Position 2', gear_list]]
 
     def inset_files(self):
-        if self.configure[0] == 'None' and self.configure[1] == 'None':
+        local_configure = sorted(self.configure)
+        if local_configure[0] == 'None' and local_configure[1] == 'None':
             return ''
         else:
-            return (self.name + self.configure[0], self.name + self.configure[1])
+            return (self.name + local_configure[0], self.name + local_configure[1])
 
     def help_text(self):
-        if self.configure[0] == 'None' and self.configure[1] == 'None':
+        local_configure = sorted(self.configure)
+        if local_configure[0] == 'None' and local_configure[1] == 'None':
             return ''
-        elif self.configure[0] == 'None':
-            return 'Slide ' + aliases['gear_axle2s'] + ' through ' + aliases[self.configure[1]] + ' and join.  Make hub face joint.'
-        elif self.configure[1] == 'None':
-            return 'Slide ' + aliases['gear_axle2s'] + ' through ' + aliases[self.configure[0]] + ' and join.  Make hub face joint.'
+        elif local_configure[0] == 'None':
+            return 'Slide ' + aliases['gear_axle2s'] + ' through ' + aliases[local_configure[1]] + ' and join.  Make hub face joint.'
+        elif local_configure[1] == 'None':
+            return 'Slide ' + aliases['gear_axle2s'] + ' through ' + aliases[local_configure[0]] + ' and join.  Make hub face joint.'
         else:
-            return 'Slide ' + aliases['gear_axle2s'] + ' through ' + aliases[self.configure[0]] + ' and ' + aliases[self.configure[1]] + ' and join.  Make hub face joint.'
+            return 'Slide ' + aliases['gear_axle2s'] + ' through ' + aliases[local_configure[0]] + ' and ' + aliases[local_configure[1]] + ' and join.  Make hub face joint.'
 
     def shape(self, color = None): 
 
@@ -1809,6 +1811,9 @@ class joinrot11(axle): # axle-based for configure only
     detail1 = 'Separate'
 
     query_options = [['Rotate 1', ['None', 'stiff1']]]
+
+    def inset_files(self):
+        return ''
 
     def shape_stiffen(self, color):
         if detail == 1:
@@ -2753,6 +2758,94 @@ class pivot(stick):
             draw_drawing('coupler')
             glPopMatrix()
 
+class pivot111(stick):
+
+    unaligned_ends = np.array([[[0.0, 0.0, 0.0],
+                                [1.0, 0.0, 0.0],
+                                [0.0, 0.0, -1.0]],
+                               [[len1s, 0.0, 0.0],
+                                [len1s-1.0, 0.0, 0.0],
+                                [len1s, 0.0, -1.0]],
+                               [[0.0, 0.0, panel_space],
+                                [1.0, 0.0, panel_space],
+                                [0.0, -1.0, panel_space]],
+                               [[len1s, 0.0, panel_space],
+                                [len1s-1.0, 0.0, panel_space],
+                                [len1s, -1.0, panel_space]],
+                               [[0.0, 0.0, -panel_space],
+                                [1.0, 0.0, -panel_space],
+                                [0.0, -1.0, -panel_space]],
+                               [[len1s, 0.0, -panel_space],
+                                [len1s-1.0, 0.0, -panel_space],
+                                [len1s, -1.0, -panel_space]]])
+    ends_types = ['s', 's', 's', 's', 's', 's']
+    icon_extent = 4.5
+    combination = ['coupler', 'gear_axle2s', 'gear_axle2s', 'gear_axle2s', 'coupler']
+
+    def label(self):
+        return self.combination[:-1]
+
+    def inset_files(self):
+        return reduce(lambda x, y: x + y, self.combination[:-1])
+
+    def help_text(self):
+        return 'Slide three ' + aliases['gear_axle2s'] + ' through two ' + aliases['coupler'] + ' and join.'
+
+    def shape(self, color = None): 
+
+        if detail == 1:
+            glePolyCylinder( ((0.0-1.0, 0.0, 0.0), (0.0, 0.0, 0.0),
+                              (len1s, 0.0, 0.0), (len1s+1.0, 0.0, 0.0)),
+                             None, base_rad)
+            glePolyCylinder( ((0.0-1.0, 0.0, panel_space), (0.0, 0.0, panel_space),
+                              (len1s, 0.0, panel_space), (len1s+1.0, 0.0, panel_space)),
+                             None, base_rad)
+            glePolyCylinder( ((0.0-1.0, 0.0, -panel_space), (0.0, 0.0, -panel_space),
+                              (len1s, 0.0, -panel_space), (len1s+1.0, 0.0, -panel_space)),
+                             None, base_rad)
+            xsection = [[-base_rad, 0.0], [-base_rad, 0.0], [base_rad, 0.0], [base_rad, 0.0], [base_rad, panel_space], [base_rad, panel_space], [-base_rad, panel_space], [-base_rad, panel_space]]
+            normal = [[-1.0, 0.0], [0.0, -1.0], [0.0, -1.0], [1.0, 0.0], [1.0, 0.0], [0.0, 1.0], [0.0, 1.0], [-1.0, 0.0]]
+            gleSetJoinStyle(TUBE_NORM_FACET | TUBE_JN_ROUND | TUBE_JN_CAP | TUBE_CONTOUR_CLOSED)
+            gleExtrusion(xsection, normal, (0.0, 0.0, 1.0), ((0.0-1.0, 0.0, 0.0), (0.0, 0.0, 0.0), (gearw, 0.0, 0.0), (gearw+1.0, 0.0, 0.0)), None)
+            xsection = [[-base_rad, -panel_space], [-base_rad, -panel_space], [base_rad, -panel_space], [base_rad, -panel_space], [base_rad, 0.0], [base_rad, 0.0], [-base_rad, 0.0], [-base_rad, 0.0]]
+            gleExtrusion(xsection, normal, (0.0, 0.0, 1.0), ((len1s-gearw-1.0, 0.0, 0.0), (len1s-gearw, 0.0, 0.0), (len1s, 0.0, 0.0), (len1s+1.0, 0.0, 0.0)), None)
+            gleSetJoinStyle(TUBE_NORM_EDGE | TUBE_JN_ROUND | TUBE_JN_CAP | TUBE_CONTOUR_CLOSED)
+            self.draw_ends()
+        elif detail == 2:
+            length = len1 - 2*join_len
+
+            glPushMatrix()
+            glRotatef(-90.0, 0.0, 0.0, 1.0)
+            glTranslatef(0.0, length/2, 0.0)
+            draw_drawing('gear_axle2s')
+            glPopMatrix()
+
+            glPushMatrix()
+            glTranslatef(0.0, 0.0, panel_space)
+            glRotatef(-90.0, 0.0, 0.0, 1.0)
+            glTranslatef(0.0, length/2, 0.0)
+            draw_drawing('gear_axle2s')
+            glPopMatrix()
+
+            glPushMatrix()
+            glTranslatef(0.0, 0.0, -panel_space)
+            glRotatef(-90.0, 0.0, 0.0, 1.0)
+            glTranslatef(0.0, length/2, 0.0)
+            draw_drawing('gear_axle2s')
+            glPopMatrix()
+
+            glPushMatrix()
+            glTranslatef(0.5*gearw, 0.0, panel_space/2)
+            glRotatef(270.0, 0.0, 1.0, 0.0)
+            draw_drawing('coupler')
+            glPopMatrix()
+
+            glPushMatrix()
+            glTranslatef(len1s-0.5*gearw, 0.0, -panel_space/2)
+            glRotatef(90.0, 0.0, 1.0, 0.0)
+            draw_drawing('coupler')
+            glPopMatrix()
+
 class pivotm1(stick):
 
     unaligned_ends = np.array([[[0.0, 0.0, 0.0],
@@ -2866,6 +2959,52 @@ class pivot00(stick):
 
             glPushMatrix()
             glTranslatef(0.0, 0.0, panel_space)
+            glRotatef(-90.0, 0.0, 0.0, 1.0)
+            draw_drawing('gear_axle1s')
+            glPopMatrix()
+
+            glPushMatrix()
+            glTranslatef(0.5*gearw, 0.0, panel_space/2)
+            glRotatef(270.0, 0.0, 1.0, 0.0)
+            draw_drawing('coupler')
+            glPopMatrix()
+
+class pivot0_(stick):
+
+    unaligned_ends = np.array([[[0.0, 0.0, 0.0],
+                                [1.0, 0.0, 0.0],
+                                [0.0, 0.0, -1.0]]])
+    ends_types = ['s']
+    icon_extent = 3.0
+    combination = ['coupler', 'gear_axle1s']
+
+    def label(self):
+        return self.combination[:]
+
+    def inset_files(self):
+        return reduce(lambda x, y: x + y, self.combination)
+
+    def help_text(self):
+        return 'Slide ' + aliases['gear_axle1s'] + ' through ' + aliases['coupler'] + ' and join.'
+
+    def shape(self, color = None): 
+
+        if detail == 1:
+            glePolyCylinder( ((0.0-1.0, 0.0, 0.0), (0.0, 0.0, 0.0),
+                              (gearw, 0.0, 0.0), (gearw+1.0, 0.0, 0.0)),
+                             None, base_rad)
+            glePolyCylinder( ((0.0-1.0, 0.0, panel_space), (0.0, 0.0, panel_space),
+                              (gearw, 0.0, panel_space), (gearw+1.0, 0.0, panel_space)),
+                             None, base_rad)
+            xsection = [[-base_rad, 0.0], [-base_rad, 0.0], [base_rad, 0.0], [base_rad, 0.0], [base_rad, panel_space], [base_rad, panel_space], [-base_rad, panel_space], [-base_rad, panel_space]]
+            normal = [[-1.0, 0.0], [0.0, -1.0], [0.0, -1.0], [1.0, 0.0], [1.0, 0.0], [0.0, 1.0], [0.0, 1.0], [-1.0, 0.0]]
+            gleSetJoinStyle(TUBE_NORM_FACET | TUBE_JN_ROUND | TUBE_JN_CAP | TUBE_CONTOUR_CLOSED)
+            gleExtrusion(xsection, normal, (0.0, 0.0, 1.0), ((-1.0, 0.0, 0.0), (0.0, 0.0, 0.0), (gearw, 0.0, 0.0), (gearw+1.0, 0.0, 0.0)), None)
+            gleSetJoinStyle(TUBE_NORM_EDGE | TUBE_JN_ROUND | TUBE_JN_CAP | TUBE_CONTOUR_CLOSED)
+            self.draw_ends()
+        elif detail == 2:
+            
+            glPushMatrix()
             glRotatef(-90.0, 0.0, 0.0, 1.0)
             draw_drawing('gear_axle1s')
             glPopMatrix()

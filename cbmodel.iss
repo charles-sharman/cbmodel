@@ -1,6 +1,6 @@
 [Setup]
 AppName=CBModel
-AppVersion=1.00
+AppVersion=1.02
 DefaultDirName={pf}\CBModel
 DefaultGroupName=CBModel
 OutputBaseFilename=Install_CBModel

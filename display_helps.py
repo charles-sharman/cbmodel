@@ -363,6 +363,47 @@ def help_good_connection(widget = None):
     
     crops = [(0, 0, image_size[0], image_size[1])]
 
+def help_couplergear_axle1s(widget = None):
+    global crops
+
+    view_standard()
+
+    join2f = pieces.join2flat()
+    c = coupler()
+    gear_axle1s = pieces.gear_axle1s()
+
+    glPushMatrix()
+    glTranslatef(-60.0*pieces.sf, 5.6*pieces.sf, 0.0)
+    join2f.shape()
+    glPopMatrix()
+
+    #glPushMatrix()
+    #glTranslatef(-60.0*pieces.sf, -5.6*pieces.sf, 0.0)
+    #join2f.shape()
+    #glPopMatrix()
+
+    glPushMatrix()
+    glTranslatef(-39.0*pieces.sf, 0.0, 0.0)
+    glRotatef(-90.0, 0.0, 1.0, 0.0)
+    glRotatef(90.0, 0.0, 0.0, 1.0)
+    c.shape()
+    glPopMatrix()
+
+    glPushMatrix()
+    glTranslatef(-29.0*pieces.sf, 5.6*pieces.sf, 0.0)
+    gear_axle1s.shape()
+    glPopMatrix()
+
+    #glPushMatrix()
+    #glTranslatef(-29.0*pieces.sf, -5.6*pieces.sf, 0.0)
+    #gear_axle1s.shape()
+    #glPopMatrix()
+
+    left_arrow(-48.0, 0.0)
+    left_arrow(-33.0, 0.0)
+
+    crops = [(0, 0, int(50.0*ppu), image_size[1])]
+
 def help_couplergear_axle1sgear_axle1s(widget = None):
     global crops
 
@@ -665,6 +706,83 @@ def help_couplergear_axle2sgear_axle2s(widget = None):
     left_arrow(-48.0, 0.0)
     left_arrow(-33.0, 0.0)
     left_arrow(-2.0, 0.0)
+    left_arrow(14.0, 0.0)
+
+    crops = [(0, 0, int(90.0*ppu), image_size[1])]
+
+def help_couplergear_axle2sgear_axle2sgear_axle2s(widget = None):
+    global crops
+
+    view_standard()
+
+    join2f = pieces.join2flat()
+    c = coupler()
+    gear_axle2s = pieces.gear_axle2s()
+
+    glPushMatrix()
+    glTranslatef(-60.0*pieces.sf, 11.2*pieces.sf, 0.0)
+    join2f.shape()
+    glPopMatrix()
+
+    glPushMatrix()
+    glTranslatef(-60.0*pieces.sf, 0.0*pieces.sf, 0.0)
+    join2f.shape()
+    glPopMatrix()
+
+    glPushMatrix()
+    glTranslatef(-60.0*pieces.sf, -11.2*pieces.sf, 0.0)
+    join2f.shape()
+    glPopMatrix()
+
+    glPushMatrix()
+    glTranslatef(30.0*pieces.sf, 11.2*pieces.sf, 0.0)
+    join2f.shape()
+    glPopMatrix()
+
+    glPushMatrix()
+    glTranslatef(30.0*pieces.sf, 0.0*pieces.sf, 0.0)
+    join2f.shape()
+    glPopMatrix()
+
+    glPushMatrix()
+    glTranslatef(30.0*pieces.sf, -11.2*pieces.sf, 0.0)
+    join2f.shape()
+    glPopMatrix()
+
+    glPushMatrix()
+    glTranslatef(-39.0*pieces.sf, -5.6*pieces.sf, 0.0)
+    glRotatef(-90.0, 0.0, 1.0, 0.0)
+    glRotatef(90.0, 0.0, 0.0, 1.0)
+    c.shape()
+    glPopMatrix()
+
+    glPushMatrix()
+    glTranslatef(8.0*pieces.sf, 5.6*pieces.sf, 0.0)
+    glRotatef(90.0, 0.0, 1.0, 0.0)
+    glRotatef(90.0, 0.0, 0.0, 1.0)
+    c.shape()
+    glPopMatrix()
+
+    glPushMatrix()
+    glTranslatef(-29.0*pieces.sf, 11.2*pieces.sf, 0.0)
+    gear_axle2s.shape()
+    glPopMatrix()
+
+    glPushMatrix()
+    glTranslatef(-29.0*pieces.sf, 0.0*pieces.sf, 0.0)
+    gear_axle2s.shape()
+    glPopMatrix()
+
+    glPushMatrix()
+    glTranslatef(-29.0*pieces.sf, -11.2*pieces.sf, 0.0)
+    gear_axle2s.shape()
+    glPopMatrix()
+
+    left_arrow(-48.0, 0.0)
+    left_arrow(-33.0, 5.6)
+    left_arrow(-2.0, 5.6)
+    left_arrow(-33.0, -5.6)
+    left_arrow(-2.0, -5.6)
     left_arrow(14.0, 0.0)
 
     crops = [(0, 0, int(90.0*ppu), image_size[1])]
@@ -1082,11 +1200,13 @@ def generate_helps(widget = None):
 
     for to_draw in ['help_bad_connection',
                     'help_good_connection',
+                    'help_couplergear_axle1s',
                     'help_couplergear_axle1sgear_axle1s',
                     'help_couplerstraight1m1gear_axle1s',
                     'help_couplergear_axle2sgear_axle1s',
                     'help_couplergear_axle2sstraight1m1',
                     'help_couplergear_axle2sgear_axle2s',
+                    'help_couplergear_axle2sgear_axle2sgear_axle2s',
                     'help_couplergear_axle2sgear_axle1sgear_axle1s',
                     'help_couplerstraight1m1straight1m1',
                     'help_wheel_axle1s1wwheelp5',
@@ -1241,6 +1361,11 @@ if __name__ == '__main__':
     file_good_connection.show()
     file_container.append(file_good_connection)
 
+    file_couplergear_axle1s = gtk.MenuItem('couplergear_axle1s')
+    file_couplergear_axle1s.connect('activate', draw_help, 'help_couplergear_axle1s')
+    file_couplergear_axle1s.show()
+    file_container.append(file_couplergear_axle1s)
+
     file_couplergear_axle1sgear_axle1s = gtk.MenuItem('couplergear_axle1sgear_axle1s')
     file_couplergear_axle1sgear_axle1s.connect('activate', draw_help, 'help_couplergear_axle1sgear_axle1s')
     file_couplergear_axle1sgear_axle1s.show()
@@ -1265,6 +1390,11 @@ if __name__ == '__main__':
     file_couplergear_axle2sgear_axle2s.connect('activate', draw_help, 'help_couplergear_axle2sgear_axle2s')
     file_couplergear_axle2sgear_axle2s.show()
     file_container.append(file_couplergear_axle2sgear_axle2s)
+
+    file_couplergear_axle2sgear_axle2sgear_axle2s = gtk.MenuItem('couplergear_axle2sgear_axle2sgear_axle2s')
+    file_couplergear_axle2sgear_axle2sgear_axle2s.connect('activate', draw_help, 'help_couplergear_axle2sgear_axle2sgear_axle2s')
+    file_couplergear_axle2sgear_axle2sgear_axle2s.show()
+    file_container.append(file_couplergear_axle2sgear_axle2sgear_axle2s)
 
     file_couplergear_axle2sgear_axle1sgear_axle1s = gtk.MenuItem('couplergear_axle2sgear_axle1sgear_axle1s')
     file_couplergear_axle2sgear_axle1sgear_axle1s.connect('activate', draw_help, 'help_couplergear_axle2sgear_axle1sgear_axle1s')

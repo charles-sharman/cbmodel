@@ -56,8 +56,8 @@ colors = {'total': (1.0, 1.0, 1.0),
           'region1': (0.5, 1.0, 0.5),
           'region2': (0.5, 0.5, 1.0),
           'region3': (0.8, 0.8, 0.4),
-          'region4': (0.4, 0.8, 0.8),
-          'region5': (0.8, 0.4, 0.4)}
+          'region4': (0.8, 0.4, 0.8),
+          'region5': (0.4, 0.8, 0.8)}
 
 def absinvert(x):
     """
@@ -301,6 +301,8 @@ class module(object):
         #  {vcenter, vout, vup, pixperunit, new_parts}, # Frame 1
         #  {vcenter, vout, vup, pixperunit, new_parts}, # Frame 2
         # etc.] (where new_pieces is a list of pieces to add for that frame)
+        self.individual_instructions = []
+        self.group_instructions = []
         self.instructions = []
         self.old_parts = []
         self.hidden_parts = []
@@ -308,6 +310,10 @@ class module(object):
         self.submodel = 0 # -1 pop, 0 none, 1 pop
         self.submodel_stack = []
         self.hold_pose = 0
+        self.group_index = -1
+        self.piece_groups = {} # A dictionary of piece_index:group_index
+        self.group_pieces = [[]] # A list of the pieces in each group
+        self.groups = [1]
 
         # History
         # Currently a crude form of undo/redo.  Stores the module
@@ -329,7 +335,7 @@ class module(object):
             
         if len(self.history) >= self.HISTORY_LENGTH:
             del self.history[0]
-        self.history.append((copy.deepcopy(self.netlist), self.port, self.ends[:], self.ends_types[:], copy.deepcopy(self.instructions)))
+        self.history.append((copy.deepcopy(self.netlist), self.port, self.ends[:], self.ends_types[:], copy.deepcopy(self.individual_instructions), copy.deepcopy(self.group_instructions)))
 
     def history_undo(self):
         """
@@ -338,7 +344,7 @@ class module(object):
         new_index = self.history_index - 1
         if len(self.history) >= -new_index:
             self.history_index = new_index
-            self.netlist, self.port, self.ends, self.ends_types, self.instructions = self.history[self.history_index]
+            self.netlist, self.port, self.ends, self.ends_types, self.individual_instructions, self.group_instructions = self.history[self.history_index]
             self.selected = []
 
     def history_redo(self):
@@ -348,7 +354,7 @@ class module(object):
         new_index = min(self.history_index + 1, -1)
         if len(self.history) >= -new_index:
             self.history_index = new_index
-            self.netlist, self.port, self.ends, self.ends_types, self.instructions = self.history[self.history_index]
+            self.netlist, self.port, self.ends, self.ends_types, self.individual_instructions, self.group_instructions = self.history[self.history_index]
             self.selected = []
 
     def start_ends(self, end_type):
@@ -377,8 +383,6 @@ class module(object):
         Draws the module by copying pixels from the back buffer to the
         front buffer.  Used in conjuction with capture_background.
         """
-        #print 'draw_base', self.total_bmd
-        glDrawBuffer(GL_FRONT)
 
         glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE)
         glDepthMask(GL_TRUE)
@@ -400,7 +404,7 @@ class module(object):
         textures are better.
         """
         viewport = glGetIntegerv(GL_VIEWPORT)
-        glReadBuffer(GL_FRONT)
+        glReadBuffer(GL_BACK)
         self.total_bmd = glReadPixelsf(viewport[0], viewport[1], viewport[2], viewport[3], GL_DEPTH_COMPONENT)
         self.total_rgb = glReadPixelsf(viewport[0], viewport[1], viewport[2], viewport[3], GL_RGBA)
 
@@ -416,12 +420,11 @@ class module(object):
         #glDepthFunc(GL_EQUAL) # fine, but z-fighting for def draw()
         # When all parts are selected, doubles redraw time ***
 
-        glDrawBuffer(GL_FRONT)
         voffset = vout*0.1
         glPushMatrix()
         glTranslatef(voffset[0], voffset[1], voffset[2])
         for count in self.selected:
-            if self.hold_pose and creationmode == 'instructions' and self.frame >= self.instruction_start:
+            if self.hold_pose and (creationmode == 'instructions' or creationmode == 'group') and self.frame >= self.instruction_start:
                 matrix = self.region_matrices[self.region_lookups[count]]
                 glPushMatrix()
                 glMultMatrixf(matrix)
@@ -597,6 +600,30 @@ class module(object):
                     else:
                         del self.instructions[frame_index]['submodel']
 
+    def calc_group_index(self):
+        return np.nonzero(np.array([0] + self.groups) <= self.frame)[0][-1] - 1
+
+    def generate_groups(self):
+        """
+        Generates a list of the frame_indices where the group changes
+        """
+        groups = [self.instruction_start]
+        group_pieces = [[]]
+        piece_groups = {}
+        group_index = 0
+        for frame_index in range(len(self.instructions)):
+            inst = self.instructions[frame_index]
+            if inst.has_key('group'):
+                groups.append(frame_index)
+                group_pieces.append([])
+                group_index = group_index + 1
+            group_pieces[-1] = group_pieces[-1] + inst['new_parts']
+            for part in inst['new_parts']:
+                piece_groups[part] = group_index
+        self.groups = groups
+        self.piece_groups = piece_groups
+        self.group_pieces = group_pieces
+
     def pose_transform(self, path, axes, rotates):
         """
         Determines a transformation for a region
@@ -658,7 +685,6 @@ class module(object):
         global colors, draw_future_parts, generate_pdf, draw_outline
         #print 'redraw'
 
-        glDrawBuffer(GL_FRONT)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         if creationmode == 'modelling':
             for p in self.netlist:
@@ -672,7 +698,7 @@ class module(object):
             # Draw selected
             self.draw_selected(vout, vup, creationmode)
 
-        elif creationmode == 'instructions' and self.frame < self.instruction_start: # pose
+        elif (creationmode == 'instructions' or creationmode == 'group') and self.frame < self.instruction_start: # pose
             # Used this to draw each region a different color
             #for region_index, region in enumerate(self.regions):
             #    color = colors['region' + str(region_index % 6)]
@@ -680,6 +706,7 @@ class module(object):
             #        if part_index >= 0:
             #            self.netlist[part_index].draw(color)
             something_selected = len(self.selected)
+            color = None # Allow piece colors
             for region_index, region in enumerate(self.regions):
 
                 glPushMatrix()
@@ -694,10 +721,17 @@ class module(object):
                         color = colors['total']
                     else:
                         color = colors['futurepart']
-                else:
-                    color = None # Allow piece colors
                 for part_index in region:
                     if part_index >= 0:
+                        if creationmode == 'group':
+                            try:
+                                group_index = self.piece_groups[part_index]
+                            except:
+                                group_index = -1
+                            if (group_index >= 0) and ((self.group_index < 0) or (group_index == self.group_index)):
+                                color = colors['region' + str(group_index % 6)]
+                            else:
+                                color = None
                         self.netlist[part_index].draw(color)
 
                 glPopMatrix()
@@ -707,12 +741,14 @@ class module(object):
             if draw_outline:
                 self.draw_part_outlines()
 
-        elif creationmode == 'instructions' and self.frame >= self.instruction_start:
+        elif (creationmode == 'instructions' or creationmode == 'group') and self.frame >= self.instruction_start:
             len_self_netlist = len(self.netlist)
             self.part_flags = 2*np.ones(len_self_netlist, np.uint8)
             frame_inc = 0
             if len(self.submodel_stack) > 0:
                 hide_old_index = reduce(lambda x, y: x + y, map(lambda z: len(z['new_parts']), self.instructions[:self.submodel_stack[-1]]))
+            elif creationmode == 'group' and len(self.groups) > 1:
+                hide_old_index = reduce(lambda x, y: x + y, map(lambda z: len(z['new_parts']), self.instructions[:self.groups[self.calc_group_index()]]))
             else:
                 hide_old_index = 0
             self.part_flags[self.old_parts[:hide_old_index]] = 3 # discard
@@ -811,22 +847,24 @@ class module(object):
         # Write instructions
         sizes = {'fullr': 'r', 'full': 'f', 'quarter': 'q', 'halfh': 'h'}
         # Add mass, price, dimensions for easy read-out later
-        if len(self.instructions) > 0:
-            self.instructions[0]['count'] = '%d' % self.total_inventory()
-            self.instructions[0]['mass'] = '%.0f' % self.mass()
-            self.instructions[0]['price'] = '%.2f' % self.price()
-            self.instructions[0]['dims'] = '%.1f,%.1f,%.1f' % self.dimensions()
-        for count, inst in enumerate(self.instructions):
-            written = written + 'i %.6e %.6e %.6e %.6e %.6e %.6e %.6e %.6e %.6e %.6e' % (inst['vcenter'][0], inst['vcenter'][1], inst['vcenter'][2], inst['vout'][0], inst['vout'][1], inst['vout'][2], inst['vup'][0], inst['vup'][1], inst['vup'][2], inst['pixperunit'])
-            if len(inst['new_parts']) > 1:
-                written = written + ' ' + reduce(lambda x, y: str(x) + ' ' + str(y), inst['new_parts'])
-            elif len(inst['new_parts']) == 1: # Some numpy bug couldn't reduce a len == 1 list
-                written = written + ' ' + str(inst['new_parts'][0])
-            written = written + ' ' + sizes[inst['size']]
-            remaining_keys = filter(lambda x: x not in ['vcenter', 'vout', 'vup', 'pixperunit', 'new_parts', 'size'], inst.keys())
-            for key in remaining_keys:
-                written = written + ' ' + key + ': ' + repr(inst[key])
-            written = written + '\n'
+        if len(self.individual_instructions) > 0:
+            self.individual_instructions[0]['count'] = '%d' % self.total_inventory()
+            self.individual_instructions[0]['mass'] = '%.0f' % self.mass()
+            self.individual_instructions[0]['price'] = '%.2f' % self.price()
+            self.individual_instructions[0]['dims'] = '%.1f,%.1f,%.1f' % self.dimensions()
+        for c, itype in (('i', self.individual_instructions),
+                         ('g', self.group_instructions)):
+            for count, inst in enumerate(itype):
+                written = written + c + ' %.6e %.6e %.6e %.6e %.6e %.6e %.6e %.6e %.6e %.6e' % (inst['vcenter'][0], inst['vcenter'][1], inst['vcenter'][2], inst['vout'][0], inst['vout'][1], inst['vout'][2], inst['vup'][0], inst['vup'][1], inst['vup'][2], inst['pixperunit'])
+                if len(inst['new_parts']) > 1:
+                    written = written + ' ' + reduce(lambda x, y: str(x) + ' ' + str(y), inst['new_parts'])
+                elif len(inst['new_parts']) == 1: # Some numpy bug couldn't reduce a len == 1 list
+                    written = written + ' ' + str(inst['new_parts'][0])
+                written = written + ' ' + sizes[inst['size']]
+                remaining_keys = filter(lambda x: x not in ['vcenter', 'vout', 'vup', 'pixperunit', 'new_parts', 'size'], inst.keys())
+                for key in remaining_keys:
+                    written = written + ' ' + key + ': ' + repr(inst[key])
+                written = written + '\n'
                 
         return written
 
@@ -838,9 +876,7 @@ class module(object):
         # This newer version takes a few more lines, but it makes
         # files about half-size.
         global colors, xabstol
-        glDrawBuffer(GL_FRONT)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-        #print 'netlist[0]', netlist[0]
 
         if netlist[0][0] == '[': # Prior to version 0.4 style netlist
             netlist = eval(netlist[0]) # Convert to list
@@ -985,56 +1021,60 @@ class module(object):
             # Instructions
             sizes = {'f': 'full', 'r': 'fullr', 'q': 'quarter', 'h': 'halfh'}
             title_line = line_number
-            self.instruction_start = 0
-            while line_number < len(netlist):
-                line = netlist[line_number].strip()
-                for size in sizes.keys():
-                    sizei = line.find(' ' + size)
-                    if sizei + 2 < len(line) and line[sizei+2] != ' ':
-                        sizei = -1
-                    if sizei >= 0:
-                        break
-                line_start = line[:sizei].split()[1:]
-                line_floats = map(lambda x: float(x), line_start[:10])
-                inst = {'vcenter': np.array(line_floats[0:3]),
-                        'vout': np.array(line_floats[3:6]),
-                        'vup': np.array(line_floats[6:9]),
-                        'pixperunit': line_floats[9]}
-                inst['new_parts'] = map(lambda x: int(x), line_start[10:])
-                if self.instruction_start <= 0 and len(inst['new_parts']) > 0: # Frames started
-                    self.instruction_start = line_number - title_line
-                inst['size'] = sizes[size]
-                # Parse defaults
-                line = line[sizei+2:].strip()
-                if line:
-                    line_split = line.split()
-                    default_index = 0
-                    while default_index < len(line_split):
-                        ls_index = default_index + 1
-                        while ls_index < len(line_split) and line_split[ls_index][-1] != ':':
-                            ls_index = ls_index + 1
-                        inst[line_split[default_index][:-1]] = eval(' '.join(line_split[default_index+1:ls_index]))
-                        default_index = ls_index
-                # Convert draw_old_parts_from to submodel
-                if inst.has_key('draw_old_parts_from'):
-                    if inst['draw_old_parts_from'] == 0: # a pop
-                        inst['submodel'] = -1
-                    else:
-                        inst['submodel'] = 1
-                    del inst['draw_old_parts_from']
-                self.instructions.append(inst)
-                line_number = line_number + 1
-            if len(self.instructions) > 0 and self.instructions[0].has_key('hold_pose'):
+            for c, itype in (('i', self.individual_instructions),
+                             ('g', self.group_instructions)):
+                while line_number < len(netlist) and netlist[line_number][0:2] == c + ' ':
+                    line = netlist[line_number].strip()
+                    for size in sizes.keys():
+                        sizei = line.find(' ' + size)
+                        if sizei + 2 < len(line) and line[sizei+2] != ' ':
+                            sizei = -1
+                        if sizei >= 0:
+                            break
+                    line_start = line[:sizei].split()[1:]
+                    line_floats = map(lambda x: float(x), line_start[:10])
+                    inst = {'vcenter': np.array(line_floats[0:3]),
+                            'vout': np.array(line_floats[3:6]),
+                            'vup': np.array(line_floats[6:9]),
+                            'pixperunit': line_floats[9]}
+                    inst['new_parts'] = map(lambda x: int(x), line_start[10:])
+                    inst['size'] = sizes[size]
+                    # Parse defaults
+                    line = line[sizei+2:].strip()
+                    if line:
+                        line_split = line.split()
+                        default_index = 0
+                        while default_index < len(line_split):
+                            ls_index = default_index + 1
+                            while ls_index < len(line_split) and line_split[ls_index][-1] != ':':
+                                ls_index = ls_index + 1
+                            inst[line_split[default_index][:-1]] = eval(' '.join(line_split[default_index+1:ls_index]))
+                            default_index = ls_index
+                    # Convert draw_old_parts_from to submodel
+                    if inst.has_key('draw_old_parts_from'):
+                        if inst['draw_old_parts_from'] == 0: # a pop
+                            inst['submodel'] = -1
+                        else:
+                            inst['submodel'] = 1
+                        del inst['draw_old_parts_from']
+                    itype.append(inst)
+                    line_number = line_number + 1
+            if len(self.individual_instructions) > 0 and self.individual_instructions[0].has_key('hold_pose'):
                 self.hold_pose = 1
 
-        if self.instruction_start <= 0:
-            self.instruction_start = max(1, len(self.instructions))
-
-        glDrawBuffer(GL_FRONT)
+        self.instructions = self.individual_instructions
+        self.generate_instruction_start()
 
         self.capture_background()
 
         self.history_push()
+    
+    def generate_instruction_start(self):
+        count = 0
+        for count, inst in enumerate(self.instructions):
+            if len(inst['new_parts']) > 0:
+                break
+        self.instruction_start = max(1, count)
 
     def screen_capture(self):
         """
@@ -1048,12 +1088,15 @@ class module(object):
                             viewport[2], viewport[3],
                             GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV)
 
-    def inventory(self):
+    def inventory(self, indices = None):
         """
         Returns the pieces in the module in a list of (quantity, name)
         """
+        if not indices:
+            indices = range(len(self.netlist))
         i = {}
-        for part in self.netlist:
+        for part_index in indices:
+            part = self.netlist[part_index]
             if len(part.combination) > 0:
                 for subpart in part.combination:
                     if i.has_key(subpart):
@@ -1085,11 +1128,11 @@ class module(object):
 
         return retval
 
-    def total_inventory(self):
+    def total_inventory(self, indices = None):
         """
         Returns the total number of pieces in a module
         """
-        return reduce(lambda x, y: x + y, map(lambda z: z[0], self.inventory()))
+        return reduce(lambda x, y: x + y, map(lambda z: z[0], self.inventory(indices)))
 
     def connect(self, part, vout, vup, capture = 1, only_move = 0, record = 1):
         """
@@ -1117,7 +1160,6 @@ class module(object):
         if not bad_angle:
             if capture:
                 self.draw_base()
-                glDrawBuffer(GL_FRONT)
                 part.draw()
 
                 self.capture_background()
@@ -1205,28 +1247,44 @@ class module(object):
                 self.port = 0
             
             # Fix Instructions
-            for instruction_index in range(len(self.instructions)):
-                inst = self.instructions[instruction_index]
-                # Fix new_parts
-                new_parts = inst['new_parts']
-                try:
-                    new_parts.remove(part_index)
-                except:
-                    pass
-                new_parts = np.array(new_parts, np.int32)
-                offset = (new_parts > part_index).astype(np.int32)
-                new_parts = new_parts - offset
-                inst['new_parts'] = new_parts.tolist()
-                # Fix magnify
-                if inst.has_key('show_magnify'):
-                    if len(inst['show_magnify']) == 3:
-                        x, y, magnify_index = inst['show_magnify']
-                        if magnify_index == part_index:
-                            inst['show_magnify'] = (x, y)
-                        elif magnify_index > part_index:
-                            inst['show_magnify'] = (x, y, magnify_index - 1)
-                # Save new instruction
-                self.instructions[instruction_index] = inst
+            for instructions in [self.individual_instructions,
+                                 self.group_instructions]:
+                for instruction_index in range(len(instructions)):
+                    inst = instructions[instruction_index]
+                    # Fix new_parts
+                    new_parts = inst['new_parts']
+                    try:
+                        new_parts.remove(part_index)
+                    except:
+                        pass
+                    new_parts = np.array(new_parts, np.int32)
+                    offset = (new_parts > part_index).astype(np.int32)
+                    new_parts = new_parts - offset
+                    inst['new_parts'] = new_parts.tolist()
+                    # Fix magnify
+                    if inst.has_key('show_magnify'):
+                        if len(inst['show_magnify']) == 3:
+                            x, y, magnify_index = inst['show_magnify']
+                            if magnify_index == part_index:
+                                inst['show_magnify'] = (x, y)
+                            elif magnify_index > part_index:
+                                inst['show_magnify'] = (x, y, magnify_index - 1)
+                    # Save new instruction
+                    instructions[instruction_index] = inst
+                    
+            # Fix Hidden Parts
+            try:
+                self.hidden_parts.remove(part_index)
+            except:
+                pass
+            for index in range(len(self.hidden_parts)):
+                hidden_part_index = self.hidden_parts[index]
+                if hidden_part_index > part_index:
+                    offset = 1
+                else:
+                    offset = 0
+                hidden_part_index = hidden_part_index - offset
+                self.hidden_parts[index] = hidden_part_index
                     
         if record:
             self.history_push()
@@ -1452,13 +1510,14 @@ class module(object):
                         regions[region_index].append(key)
                         region_lookups[key] = region_index
         regions = filter(lambda x: len(x) > 0, regions)
+        #print 'regions', regions
         self.regions = regions
         region_lookups = {}
         for region_index, region in enumerate(regions):
             for part_index in region:
                 region_lookups[part_index] = region_index
         self.region_lookups = region_lookups
-        #print region_lookups
+        #print 'region_lookups', region_lookups
 
         # Now, that we know which joinrots really rotate, versus those
         # that are connected stiff, we can find out what axes we have.
@@ -1520,6 +1579,7 @@ class module(object):
         self.region_fixed = region_index
         self.region_paths = []
         region_connections = self.region_axes.keys()
+        #print 'region_connections', region_connections
         region_iterator = range(len(self.regions))
         for count in region_iterator:
             self.region_paths.append([])
@@ -1550,6 +1610,7 @@ class module(object):
         # Append the index to the end
         for count in region_iterator:
             self.region_paths[count].append(count)
+        #print 'self.region_paths', self.region_paths
 
     def mass(self):
         """

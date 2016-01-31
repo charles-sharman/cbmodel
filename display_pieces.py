@@ -134,7 +134,7 @@ def screen_capture(background = 0):
         #scale = (1.0/0.853)*(0.6*limit/max_extent + 0.4)
         scale = (0.5*limit/max_extent + 0.5)
         print 'scale', scale
-        im = im.resize((scale*xsize, scale*ysize))
+        im = im.resize((int(round(scale*xsize)), int(round(scale*ysize))))
     im = instructions.outline(im, 4, (0, 0, 0))
     
     im.transpose(Image.FLIP_TOP_BOTTOM).save(filename)

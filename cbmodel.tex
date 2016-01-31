@@ -11,7 +11,7 @@
 \usepackage{calc}
 \usepackage[colorlinks=true, bookmarks=true]{hyperref}
 
-\newcommand{\version}{1.02} % Change also in setup.py, cbmodel.py
+\newcommand{\version}{1.03} % Change also in setup.py, cbmodel.py
 
 \pagestyle{fancy}
 \fancyhead[L]{Modeller}
@@ -544,10 +544,13 @@ model, poses of the model, and a sequence of frames.  The first frame
 begins with a blank screen and a few added pieces.  Subsequent frames
 add more pieces, until the final frame completes the model.
 
-The Crossbeams Modeller has two main modes: \emph{Modelling} and
-\emph{Instructions}.  Before choosing \emph{Instructions} mode,
-make sure your model is nearly complete.  \emph{Modelling} changes
-often require large \emph{Instructions} changes.
+The Crossbeams Modeller has three main modes: \emph{Modelling},
+\emph{Instructions}, and \emph{Group Instructions}.  \emph{Group
+  Instructions} are really a special type of \emph{Instructions}
+intended for more than one builder.  Before choosing
+\emph{Instructions} mode, make sure your model is nearly complete.
+\emph{Modelling} changes often require large \emph{Instructions}
+changes.
 
 Choose \emph{Instructions} mode with {\tt Mode - Instructions}.  The
 {\tt Piece} menu will be replaced by an {\tt Instructions} menu.
@@ -568,7 +571,7 @@ keys to position the model for the cover photo.  Use {\tt Instructions
 satisfied with the cover appearance (Figure \ref{InstructionsCover}),
 press the {\tt Right} arrow to advance to Frame 1.  If you want to
 edit the cover again, simply return to Frame 0 (the cover) with the
-{\tt Left} arrow or use {\tt Instructions - Go To Frame}.
+{\tt Left} arrow or use {\tt Instructions - Go To}.
 
 \subsection{Poses}
 
@@ -660,7 +663,7 @@ Use the {\tt Left} and {\tt Right} arrows to move back and forward
 between frames.  Each arrow press stores the displayed frame's state,
 so don't change anything as you navigate unless you want it changed.
 
-Use {\tt Instructions - Go To Frame} to move to any frame in the set.
+Use {\tt Instructions - Go To} to move to any frame in the set.
 Use Frame 0 to move to the cover.  Use a number equal to or larger
 than the number of frames to move to the last frame.
 
@@ -867,6 +870,60 @@ course, indirect rendering is slower than direct rendering.
 Some {\tt .pdf} viewers filelock the {\tt .pdf}.  In that case, close
 the old {\tt .pdf} before generating a new {\tt .pdf} or use a viewer
 that doesn't filelock.
+
+\section{Group Instructions}
+
+\emph{Group Instructions} are a special type of \emph{Instructions}
+set meant for more than one builder.  The instructions are broken into a series of groups.  Each group has its own instruction booklet that assembles part of the full model.  Connecting all group parts together creates the full model.  Typically one instruction group is assigned to one builder.
+
+Enter the \emph{Group Instructions} mode with {\tt Mode - Group
+  Instructions}.  Mentally subdivide the model into a series of groups
+(Figure \ref{GroupDivision}).  Use some combination of piece count and
+easily divisible numbers to come up with an optimum number of groups.
+Targeting 50-100 pieces per group is usually right.  Nice divisible
+numbers like 6, 8, and 12 are good group sizes.
+
+\begin{figure}[h]
+\begin{center}
+\includegraphics[width=6.38in]{doc_images/manual_group_select.png}
+\caption{Example Group Division}
+\label{GroupDivision}
+\end{center}
+\end{figure}
+
+If you already created non-group Instructions for the model, the
+Crossbeams Modeller will take the same cover image, title, and author.
+If not, you can create them in the cover frame, called \emph{Group 0}.
+Once you advance beyond the cover frame, you enter \emph{Group 1}.
+You'll see it in the \emph{Status Bar}.  Simply enter Instructions as
+you would in normal \emph{Instructions} mode.  Once you're done with a
+group, choose {\tt Instructions - New Group} to start the next group.
+Then, continue creating groups until the model is done.
+
+\subsection{Managing Groups}
+
+A few menu options exist to manage groups.
+
+\begin{list}{}{}
+  \item {\tt Instructions - Copy to Group} copies the model's non-group instructions into the group instructions, deleting all group instructions; it's a good place to start when you haven't made any \emph{Group Instructions} yet.
+  \item {\tt Instructions - Delete Group} deletes an entire group's instructions.
+  \item {\tt Instructions - Go To Group} moves to a given group's instructions.
+  \item {\tt Instructions - Move Group Back} moves a group before the previous group.
+  \item {\tt Instructions - Move Group Forward} moves a group after the next group.
+\end{list}
+
+Each group's color is automatically chosen among a group of 6 colors.
+Sometimes two groups of the same color can touch.  Select a different
+group color by using the \emph{Move Group} menu options above.
+
+The upper right frame number shows the frame number for the given
+group.  Thus, there will be one \emph{Frame 1} for each group.  The
+{\tt Instructions - Go To} still advances to any frame in any group,
+but the frame number is the absolute frame as shown in the
+\emph{Status Bar}, not the given group's frame.
+
+The {\tt .pdf} group instructions are automatically appended with {\tt
+  \_group} to differentiate them from non-group instructions.
 
 \section{Nuances}
 

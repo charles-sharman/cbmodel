@@ -22,6 +22,9 @@ import os
 import math
 import numpy as np
 
+from OpenGL.GL import *
+from OpenGL.GLU import *
+
 import PIL.Image as Image
 import PIL.ImageDraw as ImageDraw
 import PIL.ImageChops as ImageChops
@@ -36,7 +39,14 @@ try:
 except:
     pdfcanvas = None
 
-warning = 'WARNING: Small parts.  Age 10+.  Handle responsibly.  Patent pending.'
+def warning(num_pieces):
+    if num_pieces < 250:
+        warning = 'WARNING: Small parts.  Age 12+.  Handle responsibly.  U.S. Patent 9,086,087.'
+    elif num_pieces < 700:
+        warning = 'WARNING: Small parts.  Age 14+.  Not a toy.  Handle responsibly.  U.S. Patent 9,086,087.'
+    else:
+        warning = 'WARNING: Small parts.  Age 16+.  Not a toy.  Handle responsibly.  U.S. Patent 9,086,087.'
+    return warning
 
 # Routines that may be useful as imports are placed here
 
@@ -83,41 +93,14 @@ def fuzzy_frame(im, border, dpi, background_color):
         draw.line([(box, box), (im.size[0]-box, box), (im.size[0]-box, im.size[1]-box), (box, im.size[1]-box), (box, box)], fill = (bg[0], bg[1], bg[2], opacity))
     return Image.composite(imbg, im, imbg)
 
-def draw_par(pdf, x0, y0, width, leading, text, calculate_only = 0):
-    """
-    Draws a block of text, breaking it at logical spaces according to width.
-    """
-    start_index = 0
-    end_index = 0
-    y = y0
-    while start_index < len(text):
-        line = ''
-        while pdf.stringWidth(line) < width and end_index < len(text):
-            old_end_index = end_index
-            old_line = line
-            end_index = text.find(' ', end_index+1)
-            if end_index < 0: # No spaces left
-                end_index = len(text)
-            line = text[start_index:end_index]
-        if pdf.stringWidth(line) < width:
-            if not calculate_only:
-                pdf.drawString(x0, y, line)
-        else:
-            if not calculate_only:
-                pdf.drawString(x0, y, old_line)
-            end_index = old_end_index
-        y = y - leading
-        start_index = end_index
-        while start_index < len(text) and text[start_index] == ' ':
-            start_index = start_index + 1
-    return y
-
-def fill_background(im, background_color):
+def fill_background(im, background_color, mode='RGB'):
     """
     Fills an RGBA image with a background_color (0 to 255 3-tuple)
     """
     retval = im.copy()
-    imbg = Image.new('RGB', retval.size, background_color)
+    if mode == 'RGBA':
+        background_color = (background_color[0], background_color[1], background_color[2], 255)
+    imbg = Image.new(mode, retval.size, background_color)
     retval = Image.composite(retval, imbg, retval)
     #retval.paste(background_color, (0, 0), ImageChops.invert(retval)) # also worked
     return retval
@@ -174,7 +157,7 @@ def sizestr(dimensions, units):
     dimstr = format % tuple(map(lambda x: unit_types[units][0]*round(float(x), unit_types[units][1]), dimensions))
     return dimstr
 
-def draw_title(pdf, cover_image, logo_image, warning_image, dimensions, author, num_pieces, title, paper_size, background_color, annotate_color, title_font, label_font, term_font, units, x0 = 0, y0 = 0, dpi = 300.0):
+def draw_title(pdf, cover_image, logo_image, warning_image, dimensions, author, num_pieces, title, paper_size, background_color, annotate_color, title_color, title_font, label_font, term_font, units, x0 = 0, y0 = 0, dpi = 300.0, warning_num_pieces = -1):
     """
     draws the title page
     """
@@ -269,8 +252,10 @@ def draw_title(pdf, cover_image, logo_image, warning_image, dimensions, author, 
     pdf.setFont(label_font[0], label_font[1])
     pdf.drawString(x0 + 72*BLOCK_INNER_MARGIN, y0 + 1*row_height + 0.2*label_font[1], dimstr)
     pdf.drawString(x0 + 72*BLOCK_INNER_MARGIN, y0 + 0.2*label_font[1], author)
-    pdf.drawString(x0 + column1_width + 72*BLOCK_INNER_MARGIN, y0 + 1*row_height + 0.2*label_font[1], num_pieces)
     pdf.drawString(x0 + column1_width + 72*BLOCK_INNER_MARGIN, y0 + 0.2*label_font[1], 'U.S.A.')
+    pdf.setStrokeColorRGB(title_color[0], title_color[1], title_color[2])
+    pdf.setFillColorRGB(title_color[0], title_color[1], title_color[2])
+    pdf.drawString(x0 + column1_width + 72*BLOCK_INNER_MARGIN, y0 + 1*row_height + 0.2*label_font[1], num_pieces)
     # Draw Title.
     pdf.setFont(title_font[0], title_font[1])
     if rotated:
@@ -280,7 +265,6 @@ def draw_title(pdf, cover_image, logo_image, warning_image, dimensions, author, 
     else:
         x0 = (x0 + 72*(cover_x0 + BLOCK_SIDE_MARGIN))/2
         max_width = 72*(paper_size[0] - 2*BLOCK_SIDE_MARGIN - column1_width/72.0 - column2_width/72.0 - COVER_PHOTO_MARGIN)
-
     width = pdf.stringWidth(title.upper(), title_font[0], title_font[1])
     #print rotated, max_width, width, title
     if width <= max_width:
@@ -301,11 +285,16 @@ def draw_title(pdf, cover_image, logo_image, warning_image, dimensions, author, 
             y0 = y0 + 1*row_height - 0.5*title_font[1]
             pdf.drawCentredString(x0, y0, title.upper())
         else:
-            x0 = x0 - width/4
+            title1 = title[:index].upper()
+            title2 = title[index+1:].upper()
+            width = max(pdf.stringWidth(title1, title_font[0], title_font[1]),
+                        pdf.stringWidth(title2, title_font[0], title_font[1]))
+            x0 = x0 - width/2
+            #x0 = x0 - width/4
             y0 = y0 + 1*row_height
-            pdf.drawString(x0, y0, title[:index].upper())
+            pdf.drawString(x0, y0, title1)
             y0 = y0 - title_font[1]
-            pdf.drawString(x0, y0, title[index+1:].upper())
+            pdf.drawString(x0, y0, title2)
     # Draw Legal Jargon
     pdf.setFont(term_font[0], term_font[1])
     pdf.setStrokeColorRGB((annotate_color[0]+background_color[0])/2, (annotate_color[1]+background_color[1])/2, (annotate_color[2]+background_color[2])/2)
@@ -316,7 +305,9 @@ def draw_title(pdf, cover_image, logo_image, warning_image, dimensions, author, 
     else:
         x0 = 72*(cover_x0 + paper_size[0]/2)
         y0 = 72*(cover_y0 + 0.5*BLOCK_BOTTOM_MARGIN) - term_font[1]/2
-    text = warning
+    if warning_num_pieces < 0:
+        warning_num_pieces = num_pieces
+    text = warning(int(warning_num_pieces))
     space = 0.25*term_font[1]
     warning_cover = fill_background(warning_image, background_color255)
     text_width = pdf.stringWidth(text) + 72*warning_cover.size[0]/dpi + space
@@ -329,63 +320,7 @@ def draw_title(pdf, cover_image, logo_image, warning_image, dimensions, author, 
     if rotated:
         pdf.rotate(-90.0)
 
-def draw_insets(pdf, help_tuples, x, y, background_color, annotate_color, title_color, title_background_color, title_font, label_font, dpi, share_directory):
-    """
-    Draws a help inset on the frame.
-    x, y are the upper left position
-    """
-    full_tuples = []
-    for help_tuple in help_tuples:
-        name, title, annotation = help_tuple
-        margin = 0.5*label_font[1]
-        # draw the image
-        if type(name) == type(()):
-            im1 = Image.open(os.path.join(share_directory, 'helps', 'help_' + name[0] + '_left.png'))
-            im2 = Image.open(os.path.join(share_directory, 'helps', 'help_' + name[1] + '_right.png'))
-            im = Image.new('RGBA', (im1.size[0] + im2.size[0], max(im1.size[1], im2.size[1])))
-            im.paste(im1, (0, 0, im1.size[0], im1.size[1]))
-            im.paste(im2, (im1.size[0], 0, im1.size[0] + im2.size[0], im2.size[1]))
-        else:
-            im = Image.open(os.path.join(share_directory, 'helps', 'help_' + name + '.png'))
-        full_tuples.append((im.size[0], name, title, annotation, im))
-    full_tuples.sort()
-    full_tuples.reverse()
-    for full_tuple in full_tuples:
-        size0, name, title, annotation, im = full_tuple
-        box = bbox(im)
-        imcrop = im.crop((0, box[1], im.size[0], box[3]))
-        #print 'imcrop.size', imcrop.size
-        im_width = 72*imcrop.size[0]/dpi
-        im_height = 72*imcrop.size[1]/dpi
-        annotation_height = -draw_par(pdf, 0, 0, im_width - 2*margin, 1.2*label_font[1], annotation, calculate_only = 1)
-        #print 'annotation_height', annotation_height
-        im = Image.new('RGBA', (imcrop.size[0], int(imcrop.size[1] + dpi/72.0*(title_font[1] + annotation_height + 4*margin))))
-        #print 'im.size', im.size
-        im.paste(imcrop, (0, int(dpi/72.0*(title_font[1] + 2*margin)), imcrop.size[0], int(dpi/72.0*(title_font[1] + 2*margin) + imcrop.size[1])))
-        im = fill_background(im, color255(background_color))
-        pdf.drawInlineImage(im, x, y - 72*im.size[1]/dpi, im_width, 72*im.size[1]/dpi)
-        # draw the border
-        pdf.setStrokeColorRGB(annotate_color[0], annotate_color[1], annotate_color[2])
-        pdf.setFillColorRGB(annotate_color[0], annotate_color[1], annotate_color[2])
-        pdf.setLineWidth(1.0)
-        pdf.rect(x, y - 72*im.size[1]/dpi, im_width, 72*im.size[1]/dpi, fill = 0)
-        # draw the annotation
-        pdf.setFont(title_font[0], title_font[1])
-        text_width = pdf.stringWidth(title)
-        #pdf.setStrokeColorRGB(title_color[0], title_color[1], title_color[2])
-        #pdf.setFillColorRGB(title_background_color[0], title_background_color[1], title_background_color[2])
-        #draw_outlined_text(pdf, title_font, (x + im_width/2 - text_width/2, y - margin - title_font[1]), title)
-        pdf.setStrokeColorRGB(annotate_color[0], annotate_color[1], annotate_color[2])
-        pdf.setFillColorRGB(annotate_color[0], annotate_color[1], annotate_color[2])
-        pdf.drawString(x + im_width/2 - text_width/2, y - margin - title_font[1], title)
-        pdf.setStrokeColorRGB(annotate_color[0], annotate_color[1], annotate_color[2])
-        pdf.setFillColorRGB(annotate_color[0], annotate_color[1], annotate_color[2])
-        pdf.setFont(label_font[0], label_font[1])
-        #pdf.drawCentredString(x + im_width/2, ypos + 0.5*label_font[1], annotation)
-        draw_par(pdf, x + margin, y - 72*im.size[1]/dpi + annotation_height - 1.2*label_font[1] + margin, im_width - 2*margin, 1.2*label_font[1], annotation)
-        y = y - 72*im.size[1]/dpi
-
-def generate_instructions(screen, share_directory, filename, scale = 1.0):
+def generate_instructions(screen, share_directory, filename, scale=1.0, pages=['front', 'joining', 'frames', 'combined', 'back'], custom_inventory={}):
     """
     Uses reportlab to generate a pdf instruction sheet for cbmodel.
 
@@ -393,12 +328,10 @@ def generate_instructions(screen, share_directory, filename, scale = 1.0):
     getting unwieldy.
 
     Replacing OpenGL text with pdf text shrinks filesize by 5% and it
-    allows anti-aliased fonts.  However, it requires maintaining two
-    code bases.  I chose to make the OpenGL text annotations minimal,
-    spending most of the time on the pdf annotations.
+    allows anti-aliased fonts.
     """
 
-    def draw_back(ybottom, ytop):
+    def draw_back(ybottom, ytop, labels):
         scale_leading = scale*11.2/25.4*72
         scale_offset = scale*4.2/25.4*72 - inventory_font[1]/4
         yscale = 4*scale_leading + scale_offset + 0.67*subtitle_font[1]
@@ -422,7 +355,6 @@ def generate_instructions(screen, share_directory, filename, scale = 1.0):
         pdf.setFillColorRGB(screen.annotate_color[0], screen.annotate_color[1], screen.annotate_color[2])
         pdf.setFont(inventory_font[0], inventory_font[1])
         leading = 1.2*inventory_font[1]
-        labels = screen.alias_inventory()
         pictures = []
         for label in labels:
             im = Image.open(os.path.join(share_directory, 'icons', screen.alias2name[label[0]] + '.png'))
@@ -507,6 +439,7 @@ def generate_instructions(screen, share_directory, filename, scale = 1.0):
         """
         Draws the joint connection
         """
+        pdf.setStrokeColorRGB(screen.annotate_color[0], screen.annotate_color[1], screen.annotate_color[2])
         pdf.setFillColorRGB(screen.annotate_color[0], screen.annotate_color[1], screen.annotate_color[2])
         #pdf.setFont(subtitle_font[0], subtitle_font[1])
         #y0 = 72*screen.PAPER_SIZE[1] - margin - 0.5*subtitle_font[1]
@@ -594,7 +527,10 @@ def generate_instructions(screen, share_directory, filename, scale = 1.0):
         frame_index = start_index
         len_instructions = end_index + 1
         helper_labels = []
-        layouts = screen.page_layouts()
+        if frame_type == 'title':
+            layouts = [screen.total.instructions[0]['size'][0]]
+        else:
+            layouts = screen.page_layouts()
         layout_index = 0
         num_frames = 0
 
@@ -712,129 +648,21 @@ def generate_instructions(screen, share_directory, filename, scale = 1.0):
                 screen.status_bar.set_text('Drawing frame ' + str(screen.total.frame))
                 if inst['size'] != screen.total.instructions[frame + frame_index - 1]['size']:
                     screen.toggle_frame(None, 0, 0) # Force another draw on frame resize to circumvent bug with glDrawPixels not taking effect quickly.  There should be a better way ***
-                pdf.setStrokeColorRGB(screen.annotate_color[0], screen.annotate_color[1], screen.annotate_color[2])
-                pdf.setFillColorRGB(screen.background_color[0], screen.background_color[1], screen.background_color[2])
+
+                # compressed file size about 20%, didn't seem worth it
+                # because of /tmp usage.  Cannot do in-place jpeg
+                # conversion, because reportlab looks for a fp with
+                # jpegs
+                #local_im = fill_background(fuzzy_frame(screen.screen_capture(), int(FADE), DPI, screen.background_color), color255(screen.background_color))
+                #local_im.save('/tmp/tmp.jpg', 'jpeg')
+                #local_im = Image.open('/tmp/tmp.jpg')
+                #pdf.drawInlineImage(local_im, position[0], position[1], width, height)
+
                 pdf.drawInlineImage(fuzzy_frame(screen.screen_capture(), int(FADE), DPI, screen.background_color), position[0], position[1], width, height)
                 #pdf.drawInlineImage(screen.screen_capture(), position[0], position[1], width, height)
 
                 if frame_type == 'frame':
-                    pdf.setStrokeColorRGB(screen.background_color[0], screen.background_color[1], screen.background_color[2])
-                    pdf.setFillColorRGB(screen.annotate_color[0], screen.annotate_color[1], screen.annotate_color[2])
-                    framenum = screen.total.frame - screen.total.instruction_start + 1
-                    text = str(framenum)
-                    pdf.setFont(framenum_font[0], framenum_font[1])
-                    framenum_text_width = pdf.stringWidth(text)
-                    draw_outlined_text(pdf, framenum_font, (position[0] + width - framenum_text_width - FMS, position[1] + height - 0.75*framenum_font[1] - FMS), text)
-                    if len(screen.total.submodel_stack) > 0: # Draw submodels, if need be
-                        x0 = position[0] + width - framenum_text_width - FMS
-                        y = position[1] + height - 0.75*framenum_font[1] - FMS - 0.2*SUB_HEIGHT
-                        pdf.setLineWidth(1)
-                        for count in range(1, len(screen.total.submodel_stack)+1):
-                            y = y - 1.2*SUB_HEIGHT
-                            pdf.roundRect(x0, y, framenum_text_width, SUB_HEIGHT, SUB_HEIGHT/2.0, 1, 1)
-
-                    pdf.setStrokeColorRGB(screen.PRINT_BODY_COLOR[1][0], screen.PRINT_BODY_COLOR[1][1], screen.PRINT_BODY_COLOR[1][2])
-                    pdf.setFillColorRGB(screen.PRINT_BODY_COLOR[2][0], screen.PRINT_BODY_COLOR[2][1], screen.PRINT_BODY_COLOR[2][2])
-                    if not inst.has_key('hide_part_labels'):
-                        pdf.setFont(part_font[0], part_font[1])
-                        for label in screen.part_labels:
-                            x = 72*float(label[0][0])/(screen.ps_scale*screen.SCREEN_SCALE)
-                            y = 72*float(label[0][1])/(screen.ps_scale*screen.SCREEN_SCALE)
-                            if len(label[1]) > 1 and label[1][0] == label[1][-1]: # Eliminate the last coupler from the label
-                                local_label = label[1][:-1]
-                            else:
-                                local_label = label[1][:]
-                            for config_index in range(len(local_label)):
-                                text = screen.name2simple[local_label[config_index]]
-                                text_width = pdf.stringWidth(text)
-                                draw_outlined_text(pdf, part_font, (position[0] + x - text_width/2, position[1] + y + (-0.5 + 1.2*((len(local_label)-1)/2.0 - config_index))*part_font[1]), text)
-                    pdf.setStrokeColorRGB(screen.background_color[0], screen.background_color[1], screen.background_color[2])
-                    pdf.setFillColorRGB(screen.annotate_color[0], screen.annotate_color[1], screen.annotate_color[2])
-                    pdf.setFont(footnote_text_font[0], footnote_text_font[1])
-                    y0 = position[1] + FMS
-                    dy = 1.2*footnote_text_font[1]
-                    # Labels in reverse order of importance
-                    # Add crosshair label
-                    if 'crosshair' not in helper_labels and len(screen.magnify_pos) > 0:
-                        im = screen.images['magnify']['im_print']
-                        im = fill_background(im, color255(screen.background_color))
-                        im = im.resize((int(im.size[0]/3), int(im.size[1]/3)))
-                        text = ' : The next frame is centered on this piece.'
-                        total_width = pdf.stringWidth(text) + 72*im.size[0]/DPI
-                        pdf.drawInlineImage(im, position[0] + width/2 - total_width/2, y0, 72*im.size[0]/DPI, 72*im.size[1]/DPI)
-                        draw_outlined_text(pdf, footnote_text_font, (position[0] + width/2 - total_width/2 + 72*im.size[0]/DPI, y0), text)
-                        y0 = y0 + dy
-                        helper_labels.append('crosshair')
-                    # Add mirror label
-                    if 'mirror' not in helper_labels and len(screen.mirror_pos) > 0:
-                        im = screen.images['mirror']['im_print']
-                        im = fill_background(im, color255(screen.background_color))
-                        im = im.resize((int(im.size[0]/3), int(im.size[1]/3)))
-                        text = ' : Copy new pieces from old pieces.'
-                        total_width = pdf.stringWidth(text) + 72*im.size[0]/DPI
-                        pdf.drawInlineImage(im, position[0] + width/2 - total_width/2, y0, 72*im.size[0]/DPI, 72*im.size[1]/DPI)
-                        draw_outlined_text(pdf, footnote_text_font, (position[0] + width/2 - total_width/2 + 72*im.size[0]/DPI, y0), text)
-                        y0 = y0 + dy
-                        helper_labels.append('mirror')
-                    # Add submodel end
-                    if 'submodel_start' in helper_labels and 'submodel_end' not in helper_labels and len(screen.total.submodel_stack) <= 0:
-                        text = 'Submodel ends'
-                        text_width = pdf.stringWidth(text)
-                        arrow_width = pdf.stringWidth('XX')
-                        x = position[0] + width - framenum_text_width - FMS - text_width - arrow_width - FMS
-                        y = position[1] + height - 0.75*framenum_font[1] - FMS - 1.4*SUB_HEIGHT - footnote_text_font[1]/4.0
-                        draw_outlined_text(pdf, footnote_text_font, (x, y), text)
-                        draw_outlined_text(pdf, symbol_font, (x + text_width + pdf.stringWidth('x'), y), chr(222).decode(symbol_font[2], 'ignore').encode('utf8'))
-                        text = 'Connect submodel to model.'
-                        text_width = pdf.stringWidth(text)
-                        draw_outlined_text(pdf, footnote_text_font, (position[0] + width/2 - text_width/2, y0), text)
-                        y0 = y0 + dy
-                        helper_labels.append('submodel_end')
-                    # Add submodel start
-                    if 'submodel_start' not in helper_labels and len(screen.total.submodel_stack) > 0:
-                        text = 'Submodel begins'
-                        text_width = pdf.stringWidth(text)
-                        arrow_width = pdf.stringWidth('XX')
-                        x = position[0] + width - framenum_text_width - FMS - text_width - arrow_width - FMS
-                        y = position[1] + height - 0.75*framenum_font[1] - FMS - 1.4*SUB_HEIGHT - footnote_text_font[1]/4.0
-                        draw_outlined_text(pdf, footnote_text_font, (x, y), text)
-                        draw_outlined_text(pdf, symbol_font, (x + text_width + pdf.stringWidth('x'), y), chr(222).decode(symbol_font[2], 'ignore').encode('utf8'))
-                        helper_labels.append('submodel_start')
-                    # Add connect label
-                    if 'connect_pieces' not in helper_labels and ((framenum == 2 and len(screen.total.submodel_stack) <= 0) or framenum == 3):
-                        text = 'Connect new pieces together before connecting to old pieces.'
-                        text_width = pdf.stringWidth(text)
-                        draw_outlined_text(pdf, footnote_text_font, (position[0] + width/2 - text_width/2, y0), text)
-                        y0 = y0 + dy
-                        helper_labels.append('connect_pieces')
-                    # Add Piece Names label
-                    if 'piece_labels' not in helper_labels and framenum == 1:
-                        text = 'See back for piece names.'
-                        text_width = pdf.stringWidth(text)
-                        draw_outlined_text(pdf, footnote_text_font, (position[0] + width/2 - text_width/2, y0), text)
-                        y0 = y0 + dy
-                        helper_labels.append('piece_labels')
-                    # Add new part label
-                    if 'new_pieces' not in helper_labels and framenum == 1:
-                        text = 'New pieces are drawn blue.  Old pieces are drawn white.'
-                        text_width = pdf.stringWidth(text)
-                        draw_outlined_text(pdf, footnote_text_font, (position[0] + width/2 - text_width/2, y0), text)
-                        y0 = y0 + dy
-                        helper_labels.append('new_pieces')
-                    # Check for insets
-                    insets = []
-                    for label in screen.part_labels:
-                        text = ''
-                        if len(label[1]) > 1: # an inset box
-                            name = label[3]
-                            local_label = label[1]
-                            alias_label = map(lambda x: screen.name2alias[x], local_label)
-                            title = reduce(lambda x, y: x + ' ' + y, alias_label)
-                            text = label[2]
-                        if text and name not in helper_labels:
-                            insets.append((name, title, text))
-                            helper_labels.append(name)
-                    draw_insets(pdf, insets, position[0] + margin, position[1] + height - margin, screen.background_color, screen.annotate_color, screen.PRINT_BODY_COLOR[1], screen.PRINT_BODY_COLOR[2], part_font, footnote_text_font, DPI, share_directory)
+                    screen.annotate.annotate_post((position[0]/72.0, position[1]/72.0))
             if rotated:
                 pdf.rotate(-90.0)
             pdf.showPage()
@@ -860,20 +688,17 @@ def generate_instructions(screen, share_directory, filename, scale = 1.0):
 
     pdfmetrics.registerFont(pdfmetrics.Font('ZapfDingbats', 'ZapfDingbats', 'ZapfDingbatsEncoding'))
 
-    normal_font = 'Helvetica'
-    bold_font = normal_font + '-Bold'
-
-    title_font = (normal_font, 40)
-    term_font = (normal_font, 12)
-    label_font = (normal_font, 20)
-    subtitle_font = (normal_font, 24)
-    inventory_font = (normal_font, 12)
-    framenum_font = (bold_font, 24)
-    part_font = (bold_font, 10)
-    footnote_font = (bold_font, 10)
-    footnote_text_font = (normal_font, 10)
-    symbol_font = ('ZapfDingbats', 10, 'ZapfDingbatsEncoding')
-    website_font = (bold_font, 10)
+    title_font = screen.annotate.print_fonts['title']
+    term_font = screen.annotate.print_fonts['term']
+    label_font = screen.annotate.print_fonts['label']
+    subtitle_font = screen.annotate.print_fonts['subtitle']
+    inventory_font = screen.annotate.print_fonts['inventory']
+    framenum_font = screen.annotate.print_fonts['framenum']
+    part_font = screen.annotate.print_fonts['part']
+    footnote_font = screen.annotate.print_fonts['footnote']
+    footnote_text_font = screen.annotate.print_fonts['footnote_text']
+    symbol_font = screen.annotate.print_fonts['symbol']
+    website_font = screen.annotate.print_fonts['website']
 
     DPI = screen.SCREEN_SCALE * screen.PS_SCALE
     SUB_HEIGHT = framenum_font[1]/6.0
@@ -882,96 +707,691 @@ def generate_instructions(screen, share_directory, filename, scale = 1.0):
     FADE = 2.0 * screen.ps_scale
 
     pdf = pdfcanvas.Canvas(filename, pagesize = (72*screen.PAPER_SIZE[0], 72*screen.PAPER_SIZE[1]))
+    screen.annotate.set_type('print', pdf)
     screen.toggle_frame(None) # Save current frame
-    screen.total.frame = 0
 
-    # Make the Title Page
-    screen.status_bar.set_text('Drawing title page')
-    screen.omit_logo = 1
-    screen.window_color(None, screen.PRINT_COVER_COLOR)
-    screen.toggle_frame(None, 0, 0)
-    screen.toggle_frame(None, 0, 0) # Double Render necessary for proper draw ***
-    im = screen.screen_capture()
-    margin = 72*screen.MARGIN_SIZE
-    width = 72*screen.COVER_SIZE[0]
-    height = 72*screen.COVER_SIZE[1]
-    dimensions = screen.total.dimensions()
-    try:
-        author = screen.total.instructions[0]['author']
-    except:
-        author = ''
-    num_pieces = str(screen.total.total_inventory())
-    try:
-        title = screen.total.instructions[0]['title']
-    except:
-        title = ''
-    
-    pdf.setStrokeColorRGB(screen.background_color[0], screen.background_color[1], screen.background_color[2])
-    pdf.setFillColorRGB(screen.background_color[0], screen.background_color[1], screen.background_color[2])
-    if screen.background_color[0] + screen.background_color[1] + screen.background_color[2] > 1.5:
-        logo_color = 'black'
+    if screen.creationmode == 'group':
+        groups = screen.total.groups
+        group_indices = range(len(groups))
     else:
-        logo_color = 'white'
-    pdf.rect(0, 0, 72*screen.PAPER_SIZE[0], 72*screen.PAPER_SIZE[1], fill = 1)
-    draw_title(pdf, im, screen.images['logo_' + logo_color]['im_print'], screen.images['warning']['im_print'], dimensions, author, num_pieces, title, screen.PAPER_SIZE, screen.background_color, screen.annotate_color, title_font, label_font, term_font, 'ft', 0, 0, screen.SCREEN_SCALE * screen.PS_SCALE)
-    pdf.showPage()
-    screen.window_color(None, screen.PRINT_BODY_COLOR)
+        group_indices = [-1]
+    for group_index in group_indices:
+        screen.total.group_index = group_index
+        if group_index >= 0:
+            bookmark = 'Group ' + str(group_index + 1)
+            pdf.bookmarkPage(bookmark)
+            pdf.addOutlineEntry(bookmark, bookmark)
+            prefix = 'Group ' + str(group_index) + ': '
+        else:
+            prefix = ''
+        # Make the Title Page
+        screen.total.frame = 0
+        screen.status_bar.set_text(prefix + 'Drawing title page')
+        screen.omit_logo = 1
+        screen.window_color(None, screen.PRINT_COVER_COLOR)
+        screen.toggle_frame(None, 0, 0)
+        screen.toggle_frame(None, 0, 0) # Double Render necessary for proper draw ***
+        pdf.setStrokeColorRGB(screen.background_color[0], screen.background_color[1], screen.background_color[2])
+        pdf.setFillColorRGB(screen.background_color[0], screen.background_color[1], screen.background_color[2])
+        if screen.background_color[0] + screen.background_color[1] + screen.background_color[2] > 1.5:
+            logo_color = 'black'
+        else:
+            logo_color = 'white'
+        margin = 72*screen.MARGIN_SIZE
+        width = 72*screen.COVER_SIZE[0]
+        height = 72*screen.COVER_SIZE[1]
+        if 'front' in pages:
+            im = screen.screen_capture()
+            dimensions = screen.total.dimensions()
+            try:
+                author = screen.total.instructions[0]['author']
+            except:
+                try:
+                    author = screen.total.individual_instructions[0]['author']
+                except:
+                    author = ''
+            if custom_inventory:
+                num_pieces = 0
+                for key in custom_inventory:
+                    num_pieces = num_pieces + custom_inventory[key]
+                warning_num_pieces = num_pieces
+            elif group_index >= 0:
+                num_pieces = screen.total.total_inventory(screen.total.group_pieces[group_index])
+                warning_num_pieces = screen.total.total_inventory()
+                title_color = screen.PIECE_COLORS['region' + str(group_index % 6)]
+            else:
+                num_pieces = screen.total.total_inventory()
+                warning_num_pieces = num_pieces
+                title_color = screen.annotate_color
+            try:
+                title = screen.total.instructions[0]['title']
+            except:
+                try:
+                    title = screen.total.individual_instructions[0]['title']
+                except:
+                    title = ''
 
-    # Make the first inner page blank if there are too many pages
-    # Booklet conversion done externally -- no longer needed
-    #num_pages = screen.page_count()
-    #if num_pages % 4 != 0:
-    #    pdf.showPage()
-    #    num_pages = num_pages + 1
+            pdf.rect(0, 0, 72*screen.PAPER_SIZE[0], 72*screen.PAPER_SIZE[1], fill = 1)
+            draw_title(pdf, im,
+                       screen.annotate.get_image('logo_' + logo_color)['im_print'],
+                       screen.annotate.get_image('warning')['im_print'],
+                       dimensions, author, str(num_pieces),
+                       title, screen.PAPER_SIZE,
+                       screen.background_color, screen.annotate_color, title_color,
+                       title_font, label_font, term_font, 'ft', 0, 0,
+                       screen.SCREEN_SCALE * screen.PS_SCALE,
+                       warning_num_pieces = warning_num_pieces)
+            pdf.showPage()
 
-    # Make the pose pages
-    draw_frames(1, screen.total.instruction_start - 1, 'pose')
+        screen.window_color(None, screen.PRINT_BODY_COLOR)
 
-    # Make the connection page
-    draw_joining()
+        # Make the first inner page blank if there are too many pages
+        # Booklet conversion done externally -- no longer needed
+        #num_pages = screen.page_count()
+        #if num_pages % 4 != 0:
+        #    pdf.showPage()
+        #    num_pages = num_pages + 1
 
-    # Make the individual pages
-    frame_index = screen.total.instruction_start
-    draw_frames(frame_index, len(screen.total.instructions) - 1, 'frame')
+        if 'frames' in pages:
+            # Make the pose pages
+            if group_index < 0:
+                draw_frames(1, screen.total.instruction_start - 1, 'pose')
 
-    # Make the total pages a multiple of 4
-    # Booklet conversion done externally -- no longer needed
-    #while num_pages % 4 != 0:
-    #    pdf.showPage()
-    #    num_pages = num_pages + 1
+        if 'joining' in pages:
+            # Make the connection page
+            draw_joining()
 
-    # Make the Back Cover
-    margin = 72*screen.MARGIN_SIZE
-    margin = 2*margin # twice on back cover
-    screen.status_bar.set_text('Drawing inventory page')
-    screen.window_color(None, screen.PRINT_COVER_COLOR)
-    # Background
-    pdf.setStrokeColorRGB(screen.background_color[0], screen.background_color[1], screen.background_color[2])
-    pdf.setFillColorRGB(screen.background_color[0], screen.background_color[1], screen.background_color[2])
-    pdf.rect(0, 0, 72*screen.PAPER_SIZE[0], 72*screen.PAPER_SIZE[1], fill = 1)
-    # Website
-    pdf.setStrokeColorRGB(screen.annotate_color[0], screen.annotate_color[1], screen.annotate_color[2])
-    pdf.setFillColorRGB(screen.annotate_color[0], screen.annotate_color[1], screen.annotate_color[2])
-    pdf.setFont(website_font[0], website_font[1])
-    pdf.drawCentredString(72*screen.PAPER_SIZE[0]/2, 72*screen.PAPER_SIZE[1] - margin - website_font[1], 'crossbeamstoy.com')
-    ytop = 72*screen.PAPER_SIZE[1] - margin - website_font[1] - 0.5*margin
-    pdf.setLineWidth(1.0)
-    pdf.line(margin, ytop, 72*screen.PAPER_SIZE[0] - margin, ytop)
-    # Logo
-    pdf.setStrokeColorRGB(screen.annotate_color[0], screen.annotate_color[1], screen.annotate_color[2])
-    pdf.setFillColorRGB(screen.annotate_color[0], screen.annotate_color[1], screen.annotate_color[2])
-    logo_cover = screen.images['logo_' + logo_color]['im_print'].copy()
-    background_color255 = color255(screen.background_color)
-    logo_cover = fill_background(logo_cover, background_color255)
-    xsize, ysize = logo_cover.size
-    ybottom = margin + 72*ysize/DPI + 0.5*margin
-    pdf.setLineWidth(1.0)
-    pdf.line(margin, ybottom, 72*screen.PAPER_SIZE[0] - margin, ybottom)
-    pdf.drawInlineImage(logo_cover, 72*screen.PAPER_SIZE[0]/2 - 72*xsize/2/DPI, margin, 72*xsize/DPI, 72*ysize/DPI)
-    # inventory
-    draw_back(ybottom, ytop)
-    pdf.showPage()
+        # Make the individual pages
+        if group_index < 0:
+            start_frame = screen.total.instruction_start
+            end_frame = len(screen.total.instructions) - 1
+            indices = None
+        else:
+            start_frame = groups[group_index]
+            if group_index >= len(groups)-1:
+                end_frame = len(screen.total.instructions) - 1
+            else:
+                end_frame = groups[group_index + 1] - 1
+            # Find the group inventory
+            indices = []
+            for framenum in range(start_frame, end_frame + 1):
+                inst = screen.total.instructions[framenum]
+                indices = indices + inst['new_parts']
+        if custom_inventory:
+            inventory = custom_inventory.items()
+            inventory.sort()
+        else:
+            inventory = screen.alias_inventory(indices)
+
+        screen.total.frame = start_frame - 1
+        if 'frames' in pages:
+            draw_frames(start_frame, end_frame, 'frame')
+
+        ## Draw a combined page at back
+        if group_index >= 0:
+            screen.total.group_index = -1
+            screen.total.frame = -1
+            if 'combined' in pages:
+                draw_frames(0, 0, 'title')
+
+        if 'back' in pages:
+            # Make the Back Cover
+            margin = 72*screen.MARGIN_SIZE
+            margin = 2*margin # twice on back cover
+            screen.status_bar.set_text(prefix + 'Drawing inventory page')
+            screen.window_color(None, screen.PRINT_COVER_COLOR)
+            # Background
+            pdf.setStrokeColorRGB(screen.background_color[0], screen.background_color[1], screen.background_color[2])
+            pdf.setFillColorRGB(screen.background_color[0], screen.background_color[1], screen.background_color[2])
+            pdf.rect(0, 0, 72*screen.PAPER_SIZE[0], 72*screen.PAPER_SIZE[1], fill = 1)
+            # Website
+            pdf.setStrokeColorRGB(screen.annotate_color[0], screen.annotate_color[1], screen.annotate_color[2])
+            pdf.setFillColorRGB(screen.annotate_color[0], screen.annotate_color[1], screen.annotate_color[2])
+            pdf.setFont(website_font[0], website_font[1])
+            pdf.drawCentredString(72*screen.PAPER_SIZE[0]/2, 72*screen.PAPER_SIZE[1] - margin - website_font[1], 'crossbeamstoy.com')
+            ytop = 72*screen.PAPER_SIZE[1] - margin - website_font[1] - 0.5*margin
+            pdf.setLineWidth(1.0)
+            pdf.line(margin, ytop, 72*screen.PAPER_SIZE[0] - margin, ytop)
+            # Logo
+            pdf.setStrokeColorRGB(screen.annotate_color[0], screen.annotate_color[1], screen.annotate_color[2])
+            pdf.setFillColorRGB(screen.annotate_color[0], screen.annotate_color[1], screen.annotate_color[2])
+            logo_cover = screen.annotate.get_image('logo_' + logo_color)['im_print'].copy()
+            background_color255 = color255(screen.background_color)
+            logo_cover = fill_background(logo_cover, background_color255)
+            xsize, ysize = logo_cover.size
+            ybottom = margin + 72*ysize/DPI + 0.5*margin
+            pdf.setLineWidth(1.0)
+            pdf.line(margin, ybottom, 72*screen.PAPER_SIZE[0] - margin, ybottom)
+            pdf.drawInlineImage(logo_cover, 72*screen.PAPER_SIZE[0]/2 - 72*xsize/2/DPI, margin, 72*xsize/DPI, 72*ysize/DPI)
+            #pdf.setFont(website_font[0], website_font[1])
+            #pdf.drawString(margin, (ybottom - 0.5*margin)/2 + 0.5*margin + 0.1*website_font[1], 'Need help?  Try:')
+            #pdf.drawString(margin, (ybottom - 0.5*margin)/2 + 0.5*margin - 1.1*website_font[1], 'crossbeamstoy.com/static/instructions_guide.pdf')
+            # inventory
+            draw_back(ybottom, ytop, inventory)
+            pdf.showPage()
+
+    screen.total.group_index = -1
     pdf.save()
+    screen.annotate.set_type('screen')
 
     screen.glarea.window.set_cursor(screen.REGULAR_CURSOR)
     screen.status_bar.set_text('Instructions done')
+
+class Annotate(object):
+    """
+    Units are inches
+    """
+    
+    def __init__(self, screen, share_directory):
+        self.screen = screen
+        self.share_directory = share_directory
+
+        self.images = {}
+        self.screen_fonts = {}
+        self.screen_font_map = {'title': 'Sans 30',
+                                'term': 'Sans 9',
+                                'label': 'Sans 15',
+                                'subtitle': 'Sans 18',
+                                'inventory': 'Sans 9',
+                                'framenum': 'Sans Bold 18',
+                                'part': 'Sans Bold 8',
+                                'footnote': 'Sans Bold 8',
+                                'footnote_text': 'Sans 8',
+                                'symbol': None,
+                                'website': 'Sans Bold 10'}
+                                
+        self.print_fonts = {'title': ('Helvetica', 40),
+                            'term': ('Helvetica', 12),
+                            'label': ('Helvetica', 20),
+                            'subtitle': ('Helvetica', 24),
+                            'inventory': ('Helvetica', 12),
+                            'framenum': ('Helvetica-Bold', 24),
+                            'part': ('Helvetica-Bold', 10),
+                            'footnote': ('Helvetica-Bold', 10),
+                            'footnote_text': ('Helvetica', 10),
+                            'symbol': ('ZapfDingbats', 10, 'ZapfDingbatsEncoding'),
+                            'website': ('Helvetica-Bold', 10)}
+
+    def set_type(self, annotate_type, pdf=None):
+        self.annotate_type = annotate_type
+        self.pdf = pdf
+
+    def get_image(self, name, filename=None):
+        if not filename:
+            filename = name
+        if name not in self.images:
+            self.images[name] = self.screen.make_image(name, filename)
+        return self.images[name]
+
+    def set_stroke_color(self, color):
+        if self.annotate_type == 'screen':
+            glColor3fv(color)
+        else:
+            self.pdf.setStrokeColorRGB(color[0], color[1], color[2])
+
+    def set_fill_color(self, color):
+        if self.annotate_type == 'screen':
+            glColor3fv(color)
+        else:
+            self.pdf.setFillColorRGB(color[0], color[1], color[2])
+
+    def set_font(self, fontname):
+        if self.annotate_type == 'screen':
+            if self.screen_font_map[fontname]:
+                if fontname not in self.screen_fonts:
+                    screen_font = self.screen_font_map[fontname]
+                    screen_fonts_keys = self.screen_fonts.keys()
+                    screen_fonts_values = self.screen_fonts.values()
+                    try:
+                        index = screen_fonts_values.index(screen_font)
+                    except:
+                        index = -1
+                    if index >= 0:
+                        self.screen_fonts[fontname] = self.screen_fonts[screen_fonts_keys[index]].copy()
+                    else:
+                        self.screen_fonts[fontname] = self.screen.make_font(self.screen_font_map[fontname])
+                self.font = self.screen_fonts[fontname]
+            else:
+                self.font = None
+        else:
+            self.font = self.print_fonts[fontname]
+            self.pdf.setFont(self.print_fonts[fontname][0], self.print_fonts[fontname][1])
+
+    def font_height(self):
+        if self.annotate_type == 'screen':
+            retval = self.font['height'] / self.dpi
+        else:
+            retval = self.font[1] / 72.0
+        return retval
+
+    def text_width(self, text):
+        if self.annotate_type == 'screen':
+            return len(text)*self.font['width'] / self.dpi
+        else:
+            return self.pdf.stringWidth(text) / 72.0
+
+    def draw_text(self, position, text):
+        if self.annotate_type == 'screen':
+            p = gluUnProject(self.dpi*position[0],
+                             self.dpi*position[1],
+                             0.001, self.model, self.projection,
+                             self.viewport)
+            glRasterPos3fv(p)
+            glListBase(self.font['base'])
+            glCallLists(text)
+        else:
+            draw_outlined_text(self.pdf, self.font, (72*position[0], 72*position[1]), text)
+
+    def draw_par(self, pos, width, leading, text, calculate_only = 0):
+        """
+        Draws a block of text, breaking it at logical spaces according to width.
+        """
+        x0, y0 = pos
+        start_index = 0
+        end_index = 0
+        y = y0
+        while start_index < len(text):
+            line = ''
+            while self.text_width(line) < width and end_index < len(text):
+                old_end_index = end_index
+                old_line = line
+                end_index = text.find(' ', end_index+1)
+                if end_index < 0: # No spaces left
+                    end_index = len(text)
+                line = text[start_index:end_index]
+            if self.text_width(line) < width:
+                if not calculate_only:
+                    self.draw_text((x0, y), line)
+            else:
+                if not calculate_only:
+                    self.draw_text((x0, y), old_line)
+                end_index = old_end_index
+            y = y - leading
+            start_index = end_index
+            while start_index < len(text) and text[start_index] == ' ':
+                start_index = start_index + 1
+        return y
+
+    def draw_rect(self, position, width, height, line_width=0):
+        """
+        Draws a rectangle.  If line_width is set to a positive number,
+        makes the rectangle hollow.
+        """
+        if self.annotate_type == 'screen':
+            p1 = np.array(gluUnProject(self.dpi*position[0],
+                                       self.dpi*position[1], 0.001,
+                                       self.model, self.projection,
+                                       self.viewport))
+            p2 = np.array(gluUnProject(self.dpi*(position[0] + width),
+                                       self.dpi*position[1], 0.001,
+                                       self.model, self.projection,
+                                       self.viewport))
+            p3 = np.array(gluUnProject(self.dpi*(position[0] + width),
+                                       self.dpi*(position[1] + height), 0.001,
+                                       self.model, self.projection,
+                                       self.viewport))
+            p4 = np.array(gluUnProject(self.dpi*position[0],
+                                       self.dpi*(position[1] + height), 0.001,
+                                       self.model, self.projection,
+                                       self.viewport))
+            glDepthMask(GL_FALSE)
+            if line_width > 0: # Hollow
+                glLineWidth(self.dpi*line_width)
+                glBegin(GL_LINE_LOOP)
+            else:
+                glBegin(GL_QUADS)
+            glVertex3fv(p1)
+            glVertex3fv(p2)
+            glVertex3fv(p3)
+            glVertex3fv(p4)
+            glEnd()
+            glLineWidth(2.0)
+            glDepthMask(GL_TRUE)
+        else:
+            if line_width > 0: # Hollow
+                self.pdf.setLineWidth(72*line_width)
+                self.pdf.rect(72*position[0], 72*position[1], 72*width, 72*height, fill=0)
+            else:
+                self.pdf.setLineWidth(1)
+                self.pdf.roundRect(72*position[0], 72*position[1], 72*width, 72*height, 72*height/2.0, 1, 1) # Shouldn't really default to round
+
+    def draw_image(self, position, im):
+        if self.annotate_type == 'print' and self.captured: # draw straight to pdf
+            self.pdf.drawInlineImage(im, 72*position[0], 72*position[1], 72*im.size[0]/self.dpi, 72*im.size[1]/self.dpi)
+        else:
+            p = np.array(gluUnProject(self.dpi*position[0], self.dpi*position[1], 0.001, self.model, self.projection, self.viewport)) # offset by 0.001 to avoid possible rectangle clipping
+            glRasterPos3fv(p)
+            glDepthMask(GL_FALSE)
+            #glAlphaFunc(GL_GREATER, 0.5)
+            #glEnable(GL_ALPHA_TEST)
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+            glEnable(GL_BLEND)
+            glDrawPixels(im.size[0], im.size[1], GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, np.frombuffer(im.transpose(Image.FLIP_TOP_BOTTOM).tostring(), dtype=np.uint32))
+            #glDisable(GL_ALPHA_TEST)
+            glDisable(GL_BLEND)
+            glDepthMask(GL_TRUE)
+
+    def draw_logo(self, local_image_type):
+        if self.annotate_type == 'screen': # draw_title does with print
+            if self.screen.background_color == self.screen.SCREEN_COLOR[0]:
+                logo = self.get_image('logo_white')
+            else:
+                logo = self.get_image('logo_black')
+            if logo:
+                im = logo['im_' + local_image_type]
+                width, height = im.size
+                self.draw_image(((self.viewport[2]/2-width/2)/self.dpi, (self.viewport[3]-height)/self.dpi-self.screen.FRAME_MARGIN_SIZE), im)
+
+    def draw_mirror(self, local_image_type):
+        mirror = self.get_image('mirror')
+        if mirror:
+            self.draw_image((self.screen.mirror_pos[0]/float(self.screen.SCREEN_SCALE), self.screen.mirror_pos[1]/float(self.screen.SCREEN_SCALE)), mirror['im_' + local_image_type])
+
+    def draw_magnify(self, local_image_type):
+        magnify = self.get_image('xhair')
+        if magnify:
+            im = magnify['im_' + local_image_type]
+            width, height = im.size
+            if len(self.screen.magnify_pos) == 2: # a coordinate
+                x, y = self.screen.ps_scale*self.screen.magnify_pos[0], self.screen.ps_scale*self.screen.magnify_pos[1]
+            else: # a part index
+                part_index = self.screen.magnify_pos[-1]
+                center = self.screen.total.netlist[part_index].center
+                snap_pos = gluProject(center[0], center[1], center[2], self.model, self.projection, self.viewport)
+                x = snap_pos[0] - width/2
+                y = snap_pos[1] - height/2
+                x = max(x, 0)
+                x = min(x, self.viewport[2]-width)
+                y = max(y, 0)
+                y = min(y, self.viewport[3]-height)
+                self.screen.magnify_pos = (int(x/self.screen.ps_scale), int(y/self.screen.ps_scale), part_index)
+            self.draw_image((x/self.dpi, y/self.dpi), im)
+
+    def generate_helper_labels(self, frame, start_frame = 0):
+        helper_labels = []
+        for i in range(start_frame, frame):
+            inst = self.screen.total.instructions[i]
+            framenum = i - start_frame + 1
+            if 'crosshair' not in helper_labels and 'show_magnify' in inst:
+                helper_labels.append('crosshair')
+            if 'mirror' not in helper_labels and 'show_mirror' in inst:
+                helper_labels.append('mirror')
+            if 'submodel_start' not in helper_labels and 'submodel' in inst:
+                helper_labels.append('submodel_start')
+            if 'submodel_end' not in helper_labels and 'submodel' in inst and inst['submodel'] == -1:
+                helper_labels.append('submodel_end')
+            if 'connect_pieces' not in helper_labels and ((framenum == 2 and 'submodel_start' not in helper_labels) or framenum == 3):
+                helper_labels.append('connect_pieces')
+            if 'piece_labels' not in helper_labels and framenum == 1:
+                helper_labels.append('piece_labels')
+            if 'new_pieces' not in helper_labels and framenum == 1:
+                helper_labels.append('new_pieces')
+            for part_index in inst['new_parts']:
+                label = self.screen.total.netlist[part_index].label()
+                if (len(label) > 1) and (label not in helper_labels):
+                    helper_labels.append(label)
+        #print 'ghl', start_frame, frame, helper_labels
+        return helper_labels
+
+    def draw_insets(self, position, help_tuples):
+        """
+        Draws a help inset on the frame.
+        x, y are the upper left position
+        """
+        x, y = position
+        full_tuples = []
+        self.set_font('footnote_text')
+        label_font_height = self.font_height()
+        margin = 0.5*label_font_height
+        im_scale = self.screen.ps_scale / self.screen.PS_SCALE
+        for help_tuple in help_tuples:
+            name, title, annotation = help_tuple
+            # draw the image
+            if type(name) == type(()):
+                im1 = Image.open(os.path.join(self.share_directory, 'helps', 'help_' + name[0] + '_left.png'))
+                im2 = Image.open(os.path.join(self.share_directory, 'helps', 'help_' + name[1] + '_right.png'))
+                if im_scale < 0.999:
+                    im1 = im1.resize((int(im_scale*im1.size[0]), int(im_scale*im1.size[1])), Image.BILINEAR)
+                    im2 = im2.resize((int(im_scale*im2.size[0]), int(im_scale*im2.size[1])), Image.BILINEAR)
+                im = Image.new('RGBA', (im1.size[0] + im2.size[0], max(im1.size[1], im2.size[1])))
+                im.paste(im1, (0, 0, im1.size[0], im1.size[1]))
+                im.paste(im2, (im1.size[0], 0, im1.size[0] + im2.size[0], im2.size[1]))
+            else:
+                im = Image.open(os.path.join(self.share_directory, 'helps', 'help_' + name + '.png'))
+                if im_scale < 0.999:
+                    im = im.resize((int(im_scale*im.size[0]), int(im_scale*im.size[1])), Image.BILINEAR)
+            full_tuples.append((im.size[0], name, title, annotation, im))
+        full_tuples.sort()
+        full_tuples.reverse()
+        for full_tuple in full_tuples:
+            size0, name, title, annotation, im = full_tuple
+            box = bbox(im)
+            imcrop = im.crop((0, box[1], im.size[0], box[3]))
+            #print 'imcrop.size', imcrop.size
+            im_width = imcrop.size[0]/self.dpi
+            im_height = imcrop.size[1]/self.dpi
+            annotation_height = -self.draw_par((0, 0), im_width - 2*margin, 1.2*label_font_height, annotation, calculate_only = 1)
+            self.set_font('part')
+            title_font_height = self.font_height()
+            #print 'annotation_height', annotation_height
+            im = Image.new('RGBA', (imcrop.size[0], int(imcrop.size[1] + self.dpi*(title_font_height + annotation_height + 4*margin))))
+            #print 'im.size', im.size
+            im.paste(imcrop, (0, int(self.dpi*(title_font_height + 2*margin)), imcrop.size[0], int(self.dpi*(title_font_height + 2*margin) + imcrop.size[1])))
+            im = fill_background(im, color255(self.screen.background_color), 'RGBA')
+            self.draw_image((x, y - im.size[1]/self.dpi), im)
+            # draw the border
+            self.set_stroke_color(self.screen.annotate_color)
+            self.set_fill_color(self.screen.annotate_color)
+            self.draw_rect((x, y - im.size[1]/self.dpi), im_width, im.size[1]/self.dpi, 1.0/72)
+            # draw the annotation
+            self.set_stroke_color(self.screen.background_color)
+            self.set_fill_color(self.screen.annotate_color)
+            text_width = self.text_width(title)
+            self.draw_text((x + im_width/2 - text_width/2,
+                            y - margin - title_font_height), title)
+            self.set_font('footnote_text')
+            self.draw_par((x + margin,
+                           y - im.size[1]/self.dpi + annotation_height - 1.2*label_font_height + margin),
+                          im_width - 2*margin, 1.2*label_font_height,
+                          annotation)
+            y = y - im.size[1]/self.dpi
+
+    def annotate_opengl(self):
+        """
+        Annotate an instruction frame with all openGL window components
+        """
+        self.model = glGetDoublev(GL_MODELVIEW_MATRIX)
+        self.projection = glGetDoublev(GL_PROJECTION_MATRIX)
+        self.viewport = glGetIntegerv(GL_VIEWPORT)
+
+        if self.screen.ps_scale == 3 and self.screen.image_type == 'print':
+            self.local_image_type = 'print'
+        else:
+            self.local_image_type = 'screen'
+        self.dpi = float(self.screen.ps_scale*self.screen.SCREEN_SCALE)
+        glDisable(GL_LIGHTING)
+        self.captured = False
+
+        # Draw Title Page
+        if self.screen.total.frame == 0 and not self.screen.omit_logo:
+            self.draw_logo(self.local_image_type)
+
+        # Draw Mirror
+        if len(self.screen.mirror_pos) > 0:
+            self.draw_mirror(self.local_image_type)
+
+        # Draw Magnify
+        if len(self.screen.magnify_pos) > 0:
+            self.draw_magnify(self.local_image_type)
+
+        glEnable(GL_LIGHTING)
+        if self.annotate_type == 'screen':
+            self.annotate_post()
+
+    def annotate_post(self, position=(0,0)):
+        """
+        Annotates the rest after the OpenGL draw
+        """
+        fms = self.screen.FRAME_MARGIN_SIZE
+        width = self.viewport[2] / self.dpi
+        height = self.viewport[3] / self.dpi
+        self.captured = True
+        glDisable(GL_LIGHTING)
+
+        # Draw Frame Number
+        if self.screen.creationmode == 'group':
+            df = self.screen.total.groups[self.screen.total.calc_group_index()]
+        else:
+            df = self.screen.total.instruction_start
+        framenum = self.screen.total.frame - df + 1
+        if self.screen.total.frame >= self.screen.total.instruction_start:
+            self.set_stroke_color(self.screen.background_color)
+            self.set_fill_color(self.screen.annotate_color)
+            text = str(framenum)
+            self.set_font('framenum')
+            font_height = self.font_height()
+            sub_height = font_height/6.0
+            framenum_text_width = self.text_width(text)
+            self.draw_text((position[0] + width - framenum_text_width - fms,
+                            position[1] + height - 0.75*font_height - fms),
+                           text)
+
+        # Draw submodels, if need be
+        if len(self.screen.total.submodel_stack) > 0:
+            # Some parameters set in Draw Frame Number
+            x0 = position[0] + width - framenum_text_width - fms
+            y = position[1] + height - 0.75*font_height - fms - 0.2*sub_height
+            for count in range(1, len(self.screen.total.submodel_stack)+1):
+                y = y - 1.2*sub_height
+                self.draw_rect((x0, y), framenum_text_width, sub_height)
+
+        self.set_stroke_color(self.screen.PRINT_BODY_COLOR[1])
+        self.set_fill_color(self.screen.PRINT_BODY_COLOR[2])
+
+        # Draw Part Labels
+        try:
+            inst = self.screen.total.instructions[self.screen.total.frame]
+        except:
+            inst = {}
+        if self.screen.total.submodel != -1 and len(self.screen.mirror_pos) == 0:
+            #print 'inst', inst
+            self.set_font('part')
+            for label in self.screen.part_labels:
+                #print 'label', label
+                x = label[0][0] / self.dpi
+                y = label[0][1] / self.dpi
+                if len(label[1]) > 1 and label[1][0] == label[1][-1]: # Eliminate the last coupler from the label
+                    local_label = label[1][:-1]
+                else:
+                    local_label = label[1][:]
+                for config_index in range(len(local_label)):
+                    text = self.screen.name2simple[local_label[config_index]]
+                    text_width = self.text_width(text)
+                    self.draw_text((position[0] + x - text_width/2, position[1] + y + (-0.5 + 1.2*((len(local_label)-1)/2.0 - config_index))*self.font_height()), text)
+
+        # Draw Helper Labels
+        self.set_stroke_color(self.screen.background_color)
+        self.set_fill_color(self.screen.annotate_color)
+        self.set_font('footnote_text')
+        y0 = position[1] + fms
+        dy = 1.2*self.font_height()
+        helper_labels = self.generate_helper_labels(self.screen.total.frame, df)
+
+        # Labels in reverse order of importance
+        # Add crosshair label
+        if 'crosshair' not in helper_labels and len(self.screen.magnify_pos) > 0:
+            magnify = self.get_image('xhair')
+            if magnify:
+                im = magnify['im_' + self.local_image_type]
+                im = fill_background(im, color255(self.screen.background_color), 'RGBA')
+                im = im.resize((int(im.size[0]/3), int(im.size[1]/3)))
+                text = ' : The next frame is centered on this piece.'
+                total_width = self.text_width(text) + im.size[0]/self.dpi
+                self.draw_image((position[0] + width/2 - total_width/2, y0), im)
+                self.draw_text((position[0] + width/2 - total_width/2 + im.size[0]/self.dpi, y0), text)
+                y0 = y0 + dy
+
+        # Add mirror label
+        if 'mirror' not in helper_labels and len(self.screen.mirror_pos) > 0:
+            mirror = self.get_image('mirror')
+            if mirror:
+                im = mirror['im_' + self.local_image_type]
+                im = fill_background(im, color255(self.screen.background_color), 'RGBA')
+                im = im.resize((int(im.size[0]/3), int(im.size[1]/3)))
+                text = ' : Copy new pieces from old pieces.'
+                total_width = self.text_width(text) + im.size[0]/self.dpi
+                self.draw_image((position[0] + width/2 - total_width/2, y0), im)
+                self.draw_text((position[0] + width/2 - total_width/2 + im.size[0]/self.dpi, y0), text)
+                y0 = y0 + dy
+
+        # Add submodel end
+        if 'submodel_start' in helper_labels and 'submodel_end' not in helper_labels and len(self.screen.total.submodel_stack) <= 0:
+            text = 'Submodel ends'
+            text_width = self.text_width(text)
+            arrow_width = self.text_width('XX')
+            x = position[0] + width - framenum_text_width - fms - text_width - arrow_width - fms
+            y = position[1] + height - 0.75*font_height - fms - 1.4*sub_height - self.font_height()/4.0
+            self.draw_text((x, y), text)
+            self.set_font('symbol')
+            if self.font:
+                self.draw_text((x + text_width + self.text_width('x'), y), chr(222).decode(self.font[2], 'ignore').encode('utf8'))
+            self.set_font('footnote_text')
+            text = 'Connect submodel to model.'
+            text_width = self.text_width(text)
+            self.draw_text((position[0] + width/2 - text_width/2, y0), text)
+            y0 = y0 + dy
+
+        # Add submodel start
+        if 'submodel_start' not in helper_labels and len(self.screen.total.submodel_stack) > 0:
+            text = 'Submodel begins'
+            text_width = self.text_width(text)
+            arrow_width = self.text_width('XX')
+            x = position[0] + width - framenum_text_width - fms - text_width - arrow_width - fms
+            y = position[1] + height - 0.75*font_height - fms - 1.4*sub_height - self.font_height()/4.0
+            self.draw_text((x, y), text)
+            self.set_font('symbol')
+            if self.font:
+                self.draw_text((x + text_width + self.text_width('x'), y), chr(222).decode(self.font[2], 'ignore').encode('utf8'))
+            self.set_font('footnote_text')
+
+        # Add connect label
+        if 'connect_pieces' not in helper_labels and ((framenum == 2 and len(self.screen.total.submodel_stack) <= 0) or framenum == 3):
+            text = 'Connect new pieces together before connecting to old pieces.'
+            text_width = self.text_width(text)
+            self.draw_text((position[0] + width/2 - text_width/2, y0), text)
+            y0 = y0 + dy
+
+        # Add Piece Names label
+        if 'piece_labels' not in helper_labels and framenum == 1:
+            text = 'See back for piece names.'
+            text_width = self.text_width(text)
+            self.draw_text((position[0] + width/2 - text_width/2, y0), text)
+            y0 = y0 + dy
+
+        # Add new part label
+        if 'new_pieces' not in helper_labels and framenum == 1:
+            text = 'New pieces are drawn blue.  Old pieces are drawn white.'
+            text_width = self.text_width(text)
+            self.draw_text((position[0] + width/2 - text_width/2, y0), text)
+            y0 = y0 + dy
+
+        # Check for insets
+        insets = []
+        for label in self.screen.part_labels:
+            #print 'label', label
+            text = ''
+            if (len(label[1]) > 1) and (label[1] not in helper_labels): # an inset
+                name = label[3]
+                local_label = label[1]
+                alias_label = map(lambda x: self.screen.name2alias[x], local_label)
+                title = reduce(lambda x, y: x + ' ' + y, alias_label)
+                text = label[2]
+                if text:
+                    inset_tuple = (name, title, text)
+                    if inset_tuple not in insets:
+                        insets.append(inset_tuple)
+        if len(insets) > 0:
+            self.draw_insets((position[0] + self.screen.MARGIN_SIZE,
+                              position[1] + height - self.screen.MARGIN_SIZE),
+                             insets)
+        glEnable(GL_LIGHTING)

@@ -131,6 +131,13 @@ version 1.01 changes to 12/29/14
 - Connection added to helps, front page
 - Fixed load bug on models with no instructions
 - Fixed TypeError in fuzzy_frame call for later PIL versions
+version 1.02 changes to 3/10/15
+- Changed warning for 10+
+- Made some errors more clear with popups
+version 1.03 changes to 01/30/16
+- Added team builds
+- Made screen updates conventional
+- Bug fixes
 
 Conventions
 -----------
@@ -223,7 +230,7 @@ import pieces
 import vector_math
 import instructions
 
-version = '1.02' # Change also in setup.py, cbmodel.tex
+version = '1.03' # Change also in setup.py, cbmodel.tex
 
 piece_aliases = [('anglep5xp5', 'angle1x1', '1x1'),
                  ('angle1xp5', 'angle2x1', '2x1'),
@@ -252,16 +259,6 @@ piece_aliases = [('anglep5xp5', 'angle1x1', '1x1'),
                  ('join4flat', 'join4f', '4f'),
                  ('join5', 'join5', '5'),
                  ('join6', 'join6', '6'),
-                 #('joinrot11', 'rotate1s', '1s'),
-                 #('joinrot12', 'rotate1d', '1d'),
-                 #('joinrot21', 'rotate2s', '2s'),
-                 #('joinrot22', 'rotate2d', '2d'),
-                 #('joinrot2flat1', 'rotate2fs', '2fs'),
-                 #('joinrot2flat2', 'rotate2fd', '2fd'),
-                 #('joinrot3flat1', 'rotate3fs', '3fs'),
-                 #('joinrot3flat2', 'rotate3fd', '3fd'),
-                 #('joinrot4flat1', 'rotate4fs', '4fs'),
-                 #('joinrot4flat2', 'rotate4fd', '4fd'),
                  ('joinrot11', 'rotate2s', '2s'),
                  ('joinrot12', 'rotate3fd', '3fd'),
                  ('joinrot21', 'rotate3s', '3s'),
@@ -274,11 +271,13 @@ piece_aliases = [('anglep5xp5', 'angle1x1', '1x1'),
                  ('joinrot4flat2', 'rotate6d', '6d'),
                  ('pivotm1', 'couple2s', '2s'),
                  ('pivot', 'couple22', '22'),
+                 ('pivot111', 'couple222', '222'),
                  ('pivot00', 'couple11', '11'), 
                  ('pivot01', 'couple12', '12'),
                  ('pivot0m1', 'couple1s', '1s'),
                  ('pivotm1m1', 'coupless', 'ss'),
                  ('pivot0', 'couple211', '211'),
+                 ('pivot0_', 'couple1', '1'),
                  ('straightp5', 'straight1', '1'),
                  ('straight1m1', 'axle_s', 's'),
                  ('straight1', 'straight2', '2'),
@@ -310,6 +309,7 @@ class MainScreen(object):
                  'border_select()': 'b',
                  'select_all()': 'a',
                  'delete_part()': 'x',
+                 'delete_frame()': 'x',
                  'undo()': '<Control>z',
                  'redo()': '<Control>y',
                  'write_file()': 'F2',
@@ -328,9 +328,9 @@ class MainScreen(object):
                  'rotateccw()': 'KP_Divide', 
                  'rotatecw()': 'KP_Multiply', 
                  'zoomin()': 'KP_Add', 
-                 'zoomin(0.25)': '<Control>KP_Add', 
+                 'zoomin(0.25)': '<Primary>KP_Add', 
                  'zoomout()': 'KP_Subtract', 
-                 'zoomout(0.25)': '<Control>KP_Subtract', 
+                 'zoomout(0.25)': '<Primary>KP_Subtract', 
                  'viewstandard("top")': 'KP_Home', 
                  'viewstandard("bottom")': 'KP_7', 
                  'viewstandard("front")': 'KP_End', 
@@ -353,9 +353,9 @@ class MainScreen(object):
                  'rotateccw()': 'KP_Divide', 
                  'rotatecw()': 'KP_Multiply', 
                  'zoomin()': 'KP_Add', 
-                 'zoomin(0.25)': '<Control>KP_Add', 
+                 'zoomin(0.25)': '<Primary>KP_Add', 
                  'zoomout()': 'KP_Subtract', 
-                 'zoomout(0.25)': '<Control>KP_Subtract', 
+                 'zoomout(0.25)': '<Primary>KP_Subtract', 
                  'viewstandard("top")': 'KP_Home', 
                  'viewstandard("bottom")': 'KP_7', 
                  'viewstandard("front")': 'KP_End', 
@@ -417,8 +417,8 @@ class MainScreen(object):
                     'region1': (0.5, 1.0, 0.5),
                     'region2': (0.5, 0.5, 1.0),
                     'region3': (0.8, 0.8, 0.4),
-                    'region4': (0.4, 0.8, 0.8),
-                    'region5': (0.8, 0.4, 0.4)}
+                    'region4': (0.8, 0.4, 0.8),
+                    'region5': (0.4, 0.8, 0.8)}
 
     # Sizes/Scales
     SCREEN_SCALE = 100
@@ -456,6 +456,7 @@ class MainScreen(object):
         self.redisplay = 'redraw'
         self.current_filename = ''
         self.project_directory = os.path.join(os.getcwd())
+        self.annotate = instructions.Annotate(self, share_directory)
 
         self.morbit = math.pi/12.0
         self.SCR = (900, 900)
@@ -544,6 +545,7 @@ class MainScreen(object):
         self.win.add_accel_group(accel_group)
         self.modelling_only_items = []
         self.instructions_only_items = []
+        self.group_only_items = []
 
         menubar = gtk.MenuBar()
         vbox1.pack_start(menubar, False)
@@ -966,11 +968,6 @@ class MainScreen(object):
 
         instructions_container = gtk.Menu()
 
-        self.instructions_hide_part_labels = gtk.CheckMenuItem('Hide Part Labels')
-        self.instructions_hide_part_labels.set_tooltip_text('Hide labels placed on new pieces added this frame')
-        self.instructions_hide_part_labels.set_active(False)
-        instructions_container.append(self.instructions_hide_part_labels)
-
         self.instructions_show_mirror = gtk.CheckMenuItem('Show Mirror')
         self.instructions_show_mirror.set_tooltip_text('Show the mirror icon, showing new pieces are mirrored from old ones')
         self.instructions_show_mirror.set_active(False)
@@ -989,6 +986,12 @@ class MainScreen(object):
         instructions_new.set_tooltip_text('Erase all instructions and start new instructions')
         instructions_new.connect('activate', self.clear_instructions)
         instructions_container.append(instructions_new)
+
+        instructions_copy2group = gtk.MenuItem('Copy to Group')
+        instructions_copy2group.set_tooltip_text('Erase all group instructions and copy individual instructions to group instructions.')
+        instructions_copy2group.connect('activate', self.copy2group)
+        self.group_only_items.append(instructions_copy2group)
+        instructions_container.append(instructions_copy2group)
 
         self.instructions_hold_pose = gtk.CheckMenuItem('Hold Pose')
         self.instructions_hold_pose.set_tooltip_text('Hold the cover pose through all instruction steps')
@@ -1016,6 +1019,8 @@ class MainScreen(object):
         instructions_delete_frame = gtk.ImageMenuItem(gtk.STOCK_DELETE)
         instructions_delete_frame.set_tooltip_text('Delete the current frame')
         instructions_delete_frame.connect('activate', self.delete_frame)
+        keyval, keymod = self.key_lookup('delete_frame()')
+        instructions_delete_frame.add_accelerator('activate', accel_group, keyval, keymod, gtk.ACCEL_VISIBLE)
         instructions_container.append(instructions_delete_frame)
 
         instructions_container.append(gtk.SeparatorMenuItem())
@@ -1055,6 +1060,39 @@ class MainScreen(object):
 
         instructions_container.append(gtk.SeparatorMenuItem())
 
+        instructions_new_group = gtk.MenuItem('New Group')
+        instructions_new_group.set_tooltip_text('Start a group of instruction steps whose work connects to other groups at the end')
+        instructions_new_group.connect('activate', self.new_group)
+        self.group_only_items.append(instructions_new_group)
+        instructions_container.append(instructions_new_group)
+
+        instructions_delete_group = gtk.ImageMenuItem('Delete Group')
+        instructions_delete_group.set_tooltip_text('Delete the current group')
+        instructions_delete_group.set_image(gtk.image_new_from_stock(gtk.STOCK_DELETE, gtk.ICON_SIZE_MENU))
+        instructions_delete_group.connect('activate', self.delete_group)
+        self.group_only_items.append(instructions_delete_group)
+        instructions_container.append(instructions_delete_group)
+
+        instructions_move_group_back = gtk.MenuItem('Move Group Back')
+        instructions_move_group_back.set_tooltip_text('Move the current group before the previous group')
+        instructions_move_group_back.connect('activate', self.move_group, -1)
+        self.group_only_items.append(instructions_move_group_back)
+        instructions_container.append(instructions_move_group_back)
+
+        instructions_move_group_forward = gtk.MenuItem('Move Group Forward')
+        instructions_move_group_forward.set_tooltip_text('Move the current group after the next group')
+        instructions_move_group_forward.connect('activate', self.move_group, 1)
+        self.group_only_items.append(instructions_move_group_forward)
+        instructions_container.append(instructions_move_group_forward)
+
+        instructions_goto_group = gtk.MenuItem('Go To Group')
+        instructions_goto_group.set_tooltip_text('Store the current frame and move to the first frame in the chosen group')
+        instructions_goto_group.connect('activate', self.goto_group)
+        self.group_only_items.append(instructions_goto_group)
+        instructions_container.append(instructions_goto_group)
+
+        instructions_container.append(gtk.SeparatorMenuItem())
+
         instructions_draft = gtk.CheckMenuItem('Draft')
         instructions_draft.set_tooltip_text('The pdf is set for 100dpi (instead of 300dpi) for faster creation')
         instructions_draft.set_active(True)
@@ -1062,7 +1100,7 @@ class MainScreen(object):
         instructions_container.append(instructions_draft)
 
         instructions_generate = gtk.MenuItem('Generate')
-        instructions_generate.set_tooltip_text('Create a .pdf instruction set, .png cover photo, and .csv inventory')
+        instructions_generate.set_tooltip_text('Create a .pdf instruction set')
         instructions_generate.connect('activate', self.generate_instructions)
         instructions_container.append(instructions_generate)
         if not instructions.pdfcanvas:
@@ -1084,6 +1122,11 @@ class MainScreen(object):
         mode_instructions.set_tooltip_text('Switch to instructions mode')
         mode_instructions.connect('activate', self.set_mode, 'instructions')
         mode_container.append(mode_instructions)
+
+        mode_group = gtk.RadioMenuItem(self.mode_modelling, 'Group Instructions')
+        mode_group.set_tooltip_text('Switch to group instructions mode')
+        mode_group.connect('activate', self.set_mode, 'group')
+        mode_container.append(mode_group)
 
         mode_menu = gtk.MenuItem('_Mode')
         mode_menu.set_submenu(mode_container)
@@ -1225,6 +1268,7 @@ class MainScreen(object):
 
         gtk.gtkgl.widget_set_gl_capability(self.glarea, glconfig)
         self.glarea.show()
+        #print map(lambda x: x.get_name(), self.glarea.get_pango_context().list_families()) # Display available fonts
         hbox2.pack_start(self.glarea)
 
         # Pieces Space
@@ -1301,26 +1345,7 @@ class MainScreen(object):
         self.fps_label.show()
         hbox_status.pack_start(self.fps_label, False, False)
 
-        # Fonts
-        #print map(lambda x: x.get_name(), self.glarea.get_pango_context().list_families()) # Display available fonts
-        self.fonts = {}
-        self.make_font('Sans 30', 'title')
-        self.make_font('Sans Bold 24', 'author')
-        self.make_font('Sans Bold 8', 'part')
-        self.fonts['framenum'] = self.fonts['author'].copy()
-
-        # Images
-        self.images = {}
-        self.make_image('logo_white')
-        self.make_image('logo_black')
-        self.make_image('mirror')
-        self.make_image('magnify', 'xhair')
-        self.make_image('warning')
-
-        # Help Sizes
-        self.generate_help_sizes()
-
-    def make_font(self, font_str, name):
+    def make_font(self, font_str):
         """
         Creates an opengl font and puts it into the self.fonts dictionary
 
@@ -1331,15 +1356,16 @@ class MainScreen(object):
         font_base = glGenLists(128)
         font = gtk.gdkgl.font_use_pango_font(font_description, 0, 128, font_base)
         if not font:
-            self.make_font_raw(font_description, font_base, font_str, name)
+            retval = self.make_font_raw(font_description, font_base, font_str)
         else:
             font_metrics = font.get_metrics()
             font_width = pango.PIXELS(font_metrics.get_approximate_digit_width())
             font_ascent = pango.PIXELS(font_metrics.get_ascent())
             font_descent = pango.PIXELS(font_metrics.get_descent())
-            self.fonts[name] = {'base': font_base, 'width': font_width, 'height': font_ascent + font_descent}
+            retval = {'base': font_base, 'width': font_width, 'height': font_ascent + font_descent}
+        return retval
 
-    def make_font_raw(self, font_description, font_base, font_str, name):
+    def make_font_raw(self, font_description, font_base, font_str):
         """
         Creates an opengl font and puts it into the self.fonts dictionary
 
@@ -1381,60 +1407,32 @@ class MainScreen(object):
             glNewList(font_base + c, GL_COMPILE)
             glBitmap(logical_extents[2], logical_extents[3], 0, 0, logical_extents[2], 0, bytes)
             glEndList()
-        self.fonts[name] = {'base': font_base, 'width': font_width, 'height': font_height}
+        retval = {'base': font_base, 'width': font_width, 'height': font_height}
         glPixelStorei(GL_UNPACK_ALIGNMENT, 4)
         glPixelStorei(GL_UNPACK_LSB_FIRST, GL_FALSE)
+        return retval
 
-    def make_image(self, name, filename = None):
+    def make_image(self, name, filename=None):
         """
         Creates an image from file and puts it into the self.images dictionary
         """
+        global share_directory
+
         if not filename:
             filename = name
-        im = Image.open(os.path.join(share_directory, filename + '.png'))
-        xsize, ysize = im.size
-        im_print = im.resize((int(xsize/self.IMAGE_SCALE), int(ysize/self.IMAGE_SCALE)), Image.BILINEAR)
-        im_screen = im.resize((int(xsize/(self.PS_SCALE*self.IMAGE_SCALE)), int(ysize/(self.PS_SCALE*self.IMAGE_SCALE))), Image.BILINEAR)
-        self.images[name] = {'im_print': im_print,
-                             'im_screen': im_screen,
-                             'print': np.frombuffer(im_print.transpose(Image.FLIP_TOP_BOTTOM).tostring(), dtype = np.uint32),
-                             'screen': np.frombuffer(im_screen.transpose(Image.FLIP_TOP_BOTTOM).tostring(), dtype = np.uint32)}
-
-    def generate_help_sizes(self):
-        """
-        Goes through the help images and gets the size of each
-        """
-        yl = 12.0/72.0*300.0*4 # 12pt, 4 lines
-        self.help_sizes = {}
-        lefts = []
-        rights = []
-        help_files = os.listdir(os.path.join(share_directory, 'helps'))
-        for help_file in help_files:
-            im = Image.open(os.path.join(share_directory, 'helps', help_file))
-            base, ext = os.path.splitext(help_file)
-            # instructions crops the y, so we do so here, then add
-            # room for labels.  It's not perfect in y but closer.
-            bbox = im.getbbox()
-            self.help_sizes[base] = (im.size[0], bbox[3] - bbox[1] + yl)
-            if base.endswith('_left'):
-                lefts.append(base)
-            elif base.endswith('_right'):
-                rights.append(base)
-        #print self.help_sizes
-
-        # Handle all the split helps
-        for left in lefts:
-            for right in rights:
-                name = left[:-len('_left')] + right[len('help_gear_axle2s'):-len('_right')]
-                name = name.replace('None', '')
-                x = self.help_sizes[left][0] + self.help_sizes[right][0]
-                y = max(self.help_sizes[left][1], self.help_sizes[right][1])
-                self.help_sizes[name] = (x, y)
-        for left in lefts:
-            del self.help_sizes[left]
-        for right in rights:
-            del self.help_sizes[right]
-        #print self.help_sizes
+        fullname = os.path.join(share_directory, filename + '.png')
+        try:
+            im = Image.open(fullname)
+        except IOError:
+            self.status_bar.set_text('Warning: Can\'t find ' + fullname)
+            retval = None
+        if im:
+            xsize, ysize = im.size
+            im_print = im.resize((int(xsize/self.IMAGE_SCALE), int(ysize/self.IMAGE_SCALE)), Image.BILINEAR)
+            im_screen = im.resize((int(xsize/(self.PS_SCALE*self.IMAGE_SCALE)), int(ysize/(self.PS_SCALE*self.IMAGE_SCALE))), Image.BILINEAR)
+            retval = {'im_print': im_print,
+                      'im_screen': im_screen}
+        return retval
 
     def key_lookup(self, func_call):
         """
@@ -1496,31 +1494,12 @@ class MainScreen(object):
         gleSetJoinStyle(TUBE_NORM_EDGE | TUBE_JN_ROUND | TUBE_JN_CAP | TUBE_CONTOUR_CLOSED)
         #gleSetNumSides(32)
 
-        glDrawBuffer(GL_FRONT_AND_BACK)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         glDisable(GL_LINE_SMOOTH)
         glLineWidth(2.0)
 
         gldrawable.gl_end()
 
-    def text_box(self, xl, xr, yb, yt, text, font):
-        """
-        Draws a box with text centered in it
-        """
-        model = glGetDoublev(GL_MODELVIEW_MATRIX)
-        projection = glGetDoublev(GL_PROJECTION_MATRIX)
-        viewport = glGetIntegerv(GL_VIEWPORT)
-
-        pts = map(lambda x: gluUnProject(x[0], x[1], 0.001, model, projection, viewport), [(xl, yb), (xr, yb), (xr, yt), (xl, yt)])
-        glBegin(GL_LINE_LOOP)
-        for p in pts:
-            glVertex3fv(p)
-        glEnd()
-        p = gluUnProject((xl + xr)/2 - len(text)*font['width']/2, (yb + yt)/2-font['height'], 0.001, model, projection, viewport) # 0.0 for z component sometimes caused clipping
-        glRasterPos3fv(p)
-        glListBase(font['base'])
-        glCallLists(text)
-        
     def opengl_draw(self, widget, event):
         """
         Redraws the opengl portion of the screen
@@ -1558,192 +1537,13 @@ class MainScreen(object):
             if len(self.total.ends) > 0:
                 self.part.calc_draw(base_pieces.colors['part'])
 
-        elif self.creationmode == 'instructions':
-
-            scale = self.ps_scale
-            if scale == 3 and self.image_type == 'print':
-                local_image_type = 'print'
-            else:
-                local_image_type = 'screen'
-            FMS = scale*self.FRAME_MARGIN_SIZE*self.SCREEN_SCALE
-
-            if self.total.frame == 0 and not self.omit_logo: # Draw Logo on title
-                if self.background_color == self.SCREEN_COLOR[0]:
-                    logo = self.images['logo_white']
-                else:
-                    logo = self.images['logo_black']
-                width, height = logo['im_' + local_image_type].size
-                p = np.array(gluUnProject(viewport[2]/2-width/2, viewport[3]-height-FMS, 0.001, model, projection, viewport)) # offset by 0.001 to avoid possible rectangle clipping
-                glRasterPos3fv(p)
-                glDepthMask(GL_FALSE)
-                #glAlphaFunc(GL_GREATER, 0.5)
-                #glEnable(GL_ALPHA_TEST)
-                glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-                glEnable(GL_BLEND)
-                glDrawPixels(width, height, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, logo[local_image_type])
-                #glDisable(GL_ALPHA_TEST)
-                glDisable(GL_BLEND)
-                glDepthMask(GL_TRUE)
-
-            if len(self.mirror_pos) > 0: # Draw mirror, if need be
-                p = np.array(gluUnProject(scale*self.mirror_pos[0], scale*self.mirror_pos[1], 0.001, model, projection, viewport))
-                width, height = self.images['mirror']['im_' + local_image_type].size
-                glRasterPos3fv(p)
-                glDepthMask(GL_FALSE)
-                #glAlphaFunc(GL_GREATER, 0.5)
-                #glEnable(GL_ALPHA_TEST)
-                glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-                glEnable(GL_BLEND)
-                glDrawPixels(width, height, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, self.images['mirror'][local_image_type])
-                #glDisable(GL_ALPHA_TEST)
-                glDisable(GL_BLEND)
-                glDepthMask(GL_TRUE)
-
-            if len(self.magnify_pos) > 0: # Draw magnify, if need be
-                width, height = self.images['magnify']['im_' + local_image_type].size
-                if len(self.magnify_pos) == 2: # a coordinate
-                    x, y = scale*self.magnify_pos[0], scale*self.magnify_pos[1]
-                else: # a part index
-                    part_index = self.magnify_pos[-1]
-                    center = self.total.netlist[part_index].center
-                    snap_pos = gluProject(center[0], center[1], center[2], model, projection, viewport)
-                    x = snap_pos[0] - width/2
-                    y = snap_pos[1] - height/2
-                    x = max(x, 0)
-                    x = min(x, viewport[2]-width)
-                    y = max(y, 0)
-                    y = min(y, viewport[3]-height)
-                    self.magnify_pos = (int(x/scale), int(y/scale), part_index)
-                p = np.array(gluUnProject(x, y, 0.001, model, projection, viewport))
-                glRasterPos3fv(p)
-                glDepthMask(GL_FALSE)
-                #glAlphaFunc(GL_GREATER, 0.5)
-                #glEnable(GL_ALPHA_TEST)
-                glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-                glEnable(GL_BLEND)
-                glDrawPixels(width, height, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, self.images['magnify'][local_image_type])
-                #glDisable(GL_ALPHA_TEST)
-                glDisable(GL_BLEND)
-                glDepthMask(GL_TRUE)
-
-            if self.image_type == 'screen': # Use OpenGL Text Annotation
-                glDisable(GL_LIGHTING)
-
-                # Draw submodels
-                stack_count = len(self.total.submodel_stack)
-                if stack_count > 0:
-                    glColor3fv(self.annotate_color)
-                    glDepthMask(GL_FALSE)
-                    SEP = 10*scale
-                    y = viewport[3] - FMS - scale*self.fonts['framenum']['height']
-                    width = int(90.0*self.ps_scale/self.PS_SCALE)
-                    height = int(20.0*self.ps_scale/self.PS_SCALE)
-                    for count in range(1, stack_count + 1):
-                        y = y - height - SEP
-                        p1 = np.array(gluUnProject(viewport[2] - FMS - width, y, 0.001, model, projection, viewport))
-                        p2 = np.array(gluUnProject(viewport[2] - FMS, y, 0.001, model, projection, viewport))
-                        glLineWidth(height)
-                        glBegin(GL_LINES)
-                        glVertex3fv(p1)
-                        glVertex3fv(p2)
-                        glEnd()
-                        glLineWidth(2.0)
-                    glDepthMask(GL_TRUE)
-
-                # Draw title
-                if self.total.frame == 0 and not self.omit_logo:
-                    if len(self.total.instructions) > 0:
-                        if self.total.instructions[0].has_key('title'):
-                            glColor3fv(self.annotate_color)
-                            text = self.total.instructions[0]['title'].upper()
-                            font = self.fonts['title']
-                            p = gluUnProject(scale*self.SCREEN_SCALE*self.MARGIN_SIZE, scale*self.SCREEN_SCALE*self.MARGIN_SIZE, 0.001, model, projection, viewport) # 0.0 for z component sometimes caused clipping
-                            glRasterPos3fv(p)
-                            glDepthMask(GL_FALSE)
-                            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-                            glEnable(GL_BLEND)
-                            glListBase(font['base'])
-                            glCallLists(text)
-                            glDisable(GL_BLEND)
-                            glDepthMask(GL_TRUE)
-                        # Draw Title Block
-                        glColor3fv(self.annotate_color)
-                        xr = viewport[2] - scale*self.SCREEN_SCALE*self.MARGIN_SIZE
-                        xl = xr - scale*self.SCREEN_SCALE*3 # 3x1 inch assumed
-                        yb = scale*self.SCREEN_SCALE*self.MARGIN_SIZE
-                        yt = yb + scale*self.SCREEN_SCALE*1.0
-                        self.text_box(xl, xr, yb, yt, 'Title Block', self.fonts['title'])
-                        
-                # Poses
-                elif self.total.frame < self.total.instruction_start:
-                    pass
-                            
-                # Instruction Steps
-                else:
-                    glColor3fv(self.annotate_color)
-                    # Draw the frame number
-                    text = str(self.total.frame - self.total.instruction_start + 1)
-                    font = self.fonts['framenum']
-                    p = np.array(gluUnProject(viewport[2]-FMS-len(text)*font['width'], viewport[3]-FMS-font['height'], 0.001, model, projection, viewport)) # 0.0 for z component sometimes caused clipping
-                    glRasterPos3fv(p)
-                    glListBase(font['base'])
-                    glCallLists(text)
-                    # Draw the part labels
-                    if not self.instructions_hide_part_labels.get_active():
-                        vleft = -vector_math.cross(self.vup, self.vout)
-                        font = self.fonts['part']
-                        helper_labels = []
-                        glListBase(font['base'])
-                        glColor3fv(self.PRINT_BODY_COLOR[2])
-                        for part_index in self.total.selected:
-                            part = self.total.netlist[part_index]
-                            label = part.label()
-                            for config_index in range(len(label)):
-                                text = self.name2simple[label[config_index]]
-                                center = part.center
-                                glRasterPos3fv(center + self.vout*pieces.base_rad*20 + vleft*len(text)/2.0*font['width']/self.pixperunit + self.vup*(-0.5 + 1.2*((len(label)-1)/2.0 - config_index))*(font['height'])/self.pixperunit)
-                                glCallLists(text)
-                            # Check to see if help added before.  Expensive
-                            if len(label) > 1: # a help
-                                help_add = 1
-                                for inst in self.total.instructions[1:self.total.frame]:
-                                    for part_index in inst['new_parts']:
-                                        if self.total.netlist[part_index].label() == label:
-                                            help_add = 0
-                                            break
-                                    if help_add == 0:
-                                        break
-                                if help_add and label not in helper_labels:
-                                    helper_labels.append(label)
-                        yt = viewport[3] - FMS
-                        sizes = []
-                        if not self.omit_logo:
-                            for helper_label in helper_labels:
-                                key = 'help_' + reduce(lambda x, y: x + y, helper_label)
-                                if key in self.help_sizes:
-                                    text = reduce(lambda x, y: x + ' ' + y, map(lambda z: self.name2alias[z], helper_label))
-                                    size = self.help_sizes[key]
-                                    sizes.append((size[0], size[1], text))
-                        sizes.sort()
-                        sizes.reverse()
-                        for size in sizes:
-                            x, y, text = size
-                            xl = FMS
-                            xr = xl + int(scale*x/self.PS_SCALE)
-                            yb = yt - int(scale*y/self.PS_SCALE)
-                            #print xl, xr, yt, yb
-                            self.text_box(xl, xr, yb, yt, text, self.fonts['part'])
-                            yt = yb
-                    glColor3fv(self.annotate_color)
-                glEnable(GL_LIGHTING)
-
-            else: # Drawing the PDF
-                self.part_labels = []
-                for part_index in self.total.selected:
-                    part = self.total.netlist[part_index]
-                    p = [gluProject(part.center[0], part.center[1], part.center[2], model, projection, viewport), part.label(), part.help_text(), part.inset_files()]
-                    self.part_labels.append(p)
-
+        elif self.creationmode == 'instructions' or self.creationmode == 'group':
+            self.part_labels = []
+            for part_index in self.total.selected:
+                part = self.total.netlist[part_index]
+                p = [gluProject(part.center[0], part.center[1], part.center[2], model, projection, viewport), part.label(), part.help_text(), part.inset_files()]
+                self.part_labels.append(p)
+            self.annotate.annotate_opengl()
             # Restore the Raster Position
             p = np.array(gluUnProject(0.001, 0.001, 0.001, model, projection, viewport)) # 0.0 for x/y/z sometimes caused clipping
             glRasterPos3fv(p)
@@ -1786,7 +1586,7 @@ class MainScreen(object):
             glDisable(GL_LIGHTING)
             glPointSize(5)
             glBegin(GL_POINTS)
-            if self.creationmode == 'instructions':
+            if self.creationmode == 'instructions' or self.creationmode == 'group':
                 if self.total.frame < self.total.instruction_start:
                     for center in self.total.region_centers:
                         glVertex3fv(center)
@@ -1805,7 +1605,8 @@ class MainScreen(object):
         # than in many other places
         self.selected_bar.set_text(str(len(self.total.selected)))
 
-        glFlush()
+        #glFlush()
+        gldrawable.swap_buffers()
 
         gldrawable.gl_end()
         time2 = time.time()
@@ -1834,17 +1635,18 @@ class MainScreen(object):
             h = widget.allocation.height
 
         self.SCR = (w, h)
-        #print self.SCR
+        #print 'SCR', self.SCR
 
         aspect = float(w)/float(h)
         glViewport(0, 0, w, h)
-        if self.image_type == 'print':
-            ppu = self.ps_scale*self.pixperunit
-        else:
-            ppu = self.pixperunit
+        ppu = self.ps_scale*self.pixperunit
+        #if self.image_type == 'print':
+        #    ppu = self.ps_scale*self.pixperunit
+        #else:
+        #    ppu = self.pixperunit
         x = 0.5*float(w)/ppu
         y = 0.5*float(h)/ppu
-        #print 'New Dimensions: (' + repr(x) + ', ' + repr(y) + ')'
+        #print 'New Dimensions: (' + repr(x) + ', ' + repr(y) + ')', self.ps_scale
         glMatrixMode(GL_PROJECTION)
         glLoadIdentity()
         #glFrustum(-x, x, -y, y, 50.0, 400.0)
@@ -1903,21 +1705,22 @@ class MainScreen(object):
 
             x = int(self.ps_scale*size[0])
             y = int(self.ps_scale*size[1])
-            #print 'size', x, y
+
             if self.rendering == 'indirect':
                 self.print_glarea = (None, None, None) # dereference old
                 pixmap = gtk.gdk.Pixmap(None, x, y, 24)
                 glconfig = gtk.gdkgl.Config(mode=gtk.gdkgl.MODE_RGB | gtk.gdkgl.MODE_DEPTH | gtk.gdkgl.MODE_DOUBLE | gtk.gdkgl.MODE_ALPHA)
                 glpixmap = gtk.gdkgl.Pixmap(glconfig, pixmap)
-                glcontext = gtk.gdkgl.Context(glpixmap, share_list = self.glarea.get_gl_context(), direct = False) # only works if self.glarea started with direct = False.  The next line works for nvidia cards, but it reportedly fails for others.
-                #glcontext = gtk.gdkgl.Context(glpixmap, share_list = self.glarea.get_gl_context())
+                #glcontext = gtk.gdkgl.Context(glpixmap, share_list = self.glarea.get_gl_context(), direct = False) # only works if self.glarea started with direct = False.  The next line works for nvidia cards, but it reportedly fails for others.
+                glcontext = gtk.gdkgl.Context(glpixmap, share_list = self.glarea.get_gl_context())
                 self.print_glarea = (glcontext, glpixmap, pixmap)
                 self.opengl_init(None)
             else:
                 self.glarea.set_size_request(x, y)
         else:
             #print 'size', size[0], size[1]
-            self.glarea.set_size_request(size[0], size[1])
+            self.glarea.set_size_request(int(self.ps_scale*size[0]),
+                                         int(self.ps_scale*size[1]))
         self.reshape_called = 0
         self.draw_called = 0
         self.total.redraw_called = 0
@@ -2010,11 +1813,11 @@ class MainScreen(object):
         dialog.run()
         dialog.destroy()
 
-    def alias_inventory(self):
+    def alias_inventory(self, indices = None):
         """
         Converts a piece inventory to the known (alias) names
         """
-        inventory = self.total.inventory()
+        inventory = self.total.inventory(indices)
         ainv = []
         for quantity, name in inventory:
             ainv.append((self.name2alias[name], quantity))
@@ -2093,7 +1896,7 @@ class MainScreen(object):
         dialog = gtk.AboutDialog()
         dialog.set_name('Crossbeams Modeller')
         dialog.set_version(str(version))
-        dialog.set_copyright('\302\251 Copyright 2014, Seven:Twelve Engineering, LLC')
+        dialog.set_copyright('\302\251 Copyright 2015, Seven:Twelve Engineering, LLC')
         dialog.run()
         dialog.destroy()
 
@@ -2104,6 +1907,11 @@ class MainScreen(object):
         if self.creationmode != mode:
             self.glarea.window.set_cursor(self.WAIT_CURSOR)
             self.total.selected = []
+            self.total.group_index = -1
+            if self.creationmode == 'instructions':
+                self.total.individual_instructions = copy.deepcopy(self.total.instructions)
+            elif self.creationmode == 'group':
+                self.total.group_instructions = copy.deepcopy(self.total.instructions)
             self.creationmode = mode
             if mode == 'modelling':
                 # Hide unused menus
@@ -2122,7 +1930,7 @@ class MainScreen(object):
                     self.glarea.queue_draw()
                 self.win.set_resizable(True)
 
-            elif mode == 'instructions':
+            elif mode == 'instructions' or mode == 'group':
                 # Hide unused menus
                 self.part_menu.hide()
 
@@ -2134,6 +1942,20 @@ class MainScreen(object):
                 for item in self.instructions_only_items:
                     item.set_sensitive(True)
 
+                if mode == 'group':
+                    for item in self.group_only_items:
+                        item.set_sensitive(True)
+                    self.total.instructions = self.total.group_instructions
+                    if len(self.total.instructions) <= 0 and len(self.total.individual_instructions) > 0:
+                        self.total.instructions = copy.deepcopy(self.total.individual_instructions[:1]) # Copy the title page if group_instructions are empty
+                else:
+                    for item in self.group_only_items:
+                        item.set_sensitive(False)
+                    self.total.instructions = self.total.individual_instructions
+                self.total.generate_instruction_start()
+                self.total.frame = min(self.total.frame, len(self.total.instructions) - 1)
+
+                self.annotate.set_type('screen')
                 self.total.find_regions()
                 self.toggle_frame(None, 0, 0)
                 if self.total.hold_pose: # workaround to avoid menu call
@@ -2220,15 +2042,23 @@ class MainScreen(object):
         if self.total.submodel == 1:
             # Make a continuation if at a push
             self.total.submodel = 0
+            try: # do now so clean_submodel_stack works
+                del self.total.instructions[self.total.frame]['submodel']
+            except:
+                pass
             changed = 1
         else:
             if len(self.total.submodel_stack) > 0:
                 self.total.submodel = -1
-                self.instructions_hide_part_labels.set_active(True)
+                try:
+                    self.total.instructions[self.total.frame]['submodel'] = -1 # do now so clean_submodel_stack works
+                except:
+                    pass
+                self.total.selected = []
+                self.selected_bar.set_text('0')
                 changed = 1
         if changed:
-            self.total.selected = []
-            self.selected_bar.set_text('0')
+            self.total.clean_submodel_stack()
             self.total.generate_submodel_stack()
             self.redisplay = 'redraw'
             self.glarea.queue_draw()
@@ -2239,7 +2069,7 @@ class MainScreen(object):
         """
         if self.total.frame > 0:
             if widget.get_active():
-                self.mirror_pos = (self.SCR[0]/2, self.SCR[1]-self.images['mirror']['im_screen'].size[1])
+                self.mirror_pos = (int(self.SCR[0]/2), int(self.SCR[1]/2))
             else:
                 self.mirror_pos = ()
         else:
@@ -2289,9 +2119,9 @@ class MainScreen(object):
             self.total.selected = []
             self.mirror_pos = ()
             self.magnify_pos = ()
-            self.instructions_hide_part_labels.set_active(False)
             self.instructions_show_mirror.set_active(False)
             self.instructions_show_magnify.set_active(False)
+            self.start_group = 0
 
         self.redisplay = 'redraw'
         self.glarea.queue_draw()
@@ -2342,12 +2172,123 @@ class MainScreen(object):
                 self.toggle_frame(None, frame - self.total.frame, 1)
         dialog.destroy()
     
+    def copy2group(self, widget):
+        """
+        Copy individual instructions to group instructions
+        """
+        self.total.group_instructions = copy.deepcopy(self.total.individual_instructions)
+        self.total.instructions = self.total.group_instructions
+        self.toggle_frame(None, 0, 0)
+        self.redisplay = 'redraw'
+        self.glarea.queue_draw()
+
+    def new_group(self, widget):
+        """
+        Starts a new group
+        """
+        if not self.start_group:
+            self.start_group = 1
+            self.toggle_frame(None, 0, 1)
+            self.redisplay = 'redraw'
+            self.glarea.queue_draw()
+
+    def delete_group(self, widget):
+        """
+        Deletes the current group
+        """
+        changed = 0
+        if self.start_group:
+            self.start_group = 0
+            changed = 1
+        else:
+            frame_index = self.total.frame - 1
+            while frame_index > self.total.instruction_start:
+                inst = self.total.instructions[frame_index]
+                if inst.has_key('group'):
+                    del inst['group']
+                    changed = 1
+                    break
+                frame_index = frame_index - 1
+        if changed:
+            self.toggle_frame(None, 0, 1)
+            self.redisplay = 'redraw'
+            self.glarea.queue_draw()
+
+    def move_group(self, widget = None, delta = 0):
+        """
+        Move the current group one forward or one backward -- used to
+        change color scheme.
+        """
+        if delta == -1: # Move one backward
+            group_index = self.total.calc_group_index()
+            if group_index > 0:
+                start_frame = self.total.groups[group_index]
+                insert_point = self.total.groups[group_index-1]
+                dframes = start_frame - insert_point
+                if group_index >= len(self.total.groups)-1:
+                    end_frame = len(self.total.instructions)
+                else:
+                    end_frame = self.total.groups[group_index+1]
+                new_inst = self.total.instructions[:insert_point] + \
+                    self.total.instructions[start_frame:end_frame] + \
+                    self.total.instructions[insert_point:start_frame] + \
+                    self.total.instructions[end_frame:]
+                #print start_frame, end_frame, insert_point, self.total.groups, len(self.total.instructions), len(new_inst)
+                self.total.instructions = new_inst
+                self.total.frame = self.total.frame - dframes
+                self.toggle_frame(None, 0, 0)
+                self.redisplay = 'redraw'
+                self.glarea.queue_draw()
+            
+        elif delta == 1: # Move one forward
+            group_index = self.total.calc_group_index()
+            if group_index < len(self.total.groups)-1:
+                start_frame = self.total.groups[group_index]
+                end_frame = self.total.groups[group_index+1]
+                if group_index >= len(self.total.groups)-2:
+                    insert_point = len(self.total.instructions)
+                else:
+                    insert_point = self.total.groups[group_index+2]
+                dframes = insert_point - end_frame
+                new_inst = self.total.instructions[:start_frame] + \
+                    self.total.instructions[end_frame:insert_point] + \
+                    self.total.instructions[start_frame:end_frame] + \
+                    self.total.instructions[insert_point:]
+                self.total.instructions = new_inst
+                self.total.frame = self.total.frame + dframes
+                self.toggle_frame(None, 0, 0)
+                self.redisplay = 'redraw'
+                self.glarea.queue_draw()
+
+    def goto_group(self, widget):
+        """
+        Displays a dialog to move to a specific group in instructions mode
+        """
+        dialog = gtk.Dialog('Go To Group', self.win, 0, (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL, gtk.STOCK_OK, gtk.RESPONSE_OK))
+        entries = []
+        table = gtk.Table(1, 2)
+        dialog.vbox.pack_start(table, False, False, 0)
+
+        entry_frame = gtk.Entry()
+        table.attach(gtk.Label('Group'), 0, 1, 0, 1)
+        table.attach(entry_frame, 1, 2, 0, 1)
+
+        dialog.show_all()
+        response = dialog.run()
+        if response == gtk.RESPONSE_OK or response == gtk.RESPONSE_APPLY:
+            group = entry_frame.get_text()
+            if group.isdigit():
+                group = min(max(0, int(group)-1), len(self.total.groups)-1)
+                frame = self.total.groups[group]
+                self.toggle_frame(None, frame - self.total.frame, 1)
+        dialog.destroy()
+
     def toggle_frame(self, widget = None, next = 1, save_current = 1):
         """
         Moves to the previous or next frame in instructions mode,
         saving the current frame
         """
-        if self.creationmode == 'instructions':
+        if self.creationmode == 'instructions' or self.creationmode == 'group':
             # If unchanged, don't advance
             if self.total.frame > 0 and self.total.frame < self.total.instruction_start:
                 last_frame = self.total.instructions[self.total.frame-1]
@@ -2371,7 +2312,8 @@ class MainScreen(object):
                     (last_frame['new_parts'] == self.total.selected or
                      len(self.total.netlist) <= len(self.total.old_parts)) and
                     last_frame['size'] == self.winsize and
-                    self.total.submodel == 0):
+                    self.total.submodel == 0 and
+                    self.start_group == 0):
                     save_current = 0
                     if next > 0 and self.total.frame >= len(self.total.instructions):
                         return
@@ -2402,10 +2344,6 @@ class MainScreen(object):
 
                 else: # instruction steps
                     self.total.instructions[self.total.frame]['new_parts'] = self.total.selected[:]
-                    if self.instructions_hide_part_labels.get_active():
-                        self.total.instructions[self.total.frame]['hide_part_labels'] = 1
-                    elif self.total.instructions[self.total.frame].has_key('hide_part_labels'):
-                        del self.total.instructions[self.total.frame]['hide_part_labels']
                     if len(self.mirror_pos) > 0:
                         self.total.instructions[self.total.frame]['show_mirror'] = self.mirror_pos[:]
                     elif self.total.instructions[self.total.frame].has_key('show_mirror'):
@@ -2416,11 +2354,16 @@ class MainScreen(object):
                         del self.total.instructions[self.total.frame]['show_magnify']
                     if self.total.submodel != 0:
                         self.total.instructions[self.total.frame]['submodel'] = self.total.submodel
-                        if self.total.submodel == -1: # a pop
-                            self.total.clean_submodel_stack()
+                        #if self.total.submodel == -1: # a pop
+                        #    self.total.clean_submodel_stack()
 
                     elif self.total.instructions[self.total.frame].has_key('submodel'):
                         del self.total.instructions[self.total.frame]['submodel']
+
+                    if self.start_group:
+                        self.total.instructions[self.total.frame]['group'] = 1
+                    elif self.total.instructions[self.total.frame].has_key('group'):
+                        del self.total.instructions[self.total.frame]['group']
 
                     # Remove new_parts from all frames after this one (expensive ***)
                     local_frame = self.total.frame + 1
@@ -2449,14 +2392,8 @@ class MainScreen(object):
                 winsize = inst['size']
                 if inst.has_key('submodel'):
                     self.total.submodel = inst['submodel']
-                    if self.total.submodel == -1:
-                        self.instructions_hide_part_labels.set_active(True)
                 else:
                     self.total.submodel = 0
-                if inst.has_key('hide_part_labels'):
-                    self.instructions_hide_part_labels.set_active(True)
-                else:
-                    self.instructions_hide_part_labels.set_active(False)
                 if inst.has_key('show_mirror'):
                     self.instructions_show_mirror.set_active(True)
                     self.mirror_pos = inst['show_mirror']
@@ -2478,6 +2415,10 @@ class MainScreen(object):
                         self.total.region_rotates = inst['rotates'][:len(self.total.region_rotates)]
                     else:
                         self.total.region_rotates = inst['rotates'] + [0]*delta
+                if inst.has_key('group'):
+                    self.start_group = 1
+                else:
+                    self.start_group = 0
 
             else: # Anything that should be reset per frame goes here
                 if self.total.frame == 0:
@@ -2488,12 +2429,22 @@ class MainScreen(object):
                 self.total.submodel = 0
                 self.mirror_pos = ()
                 self.magnify_pos = ()
-                self.instructions_hide_part_labels.set_active(False)
                 self.instructions_show_mirror.set_active(False)
                 self.instructions_show_magnify.set_active(False)
+                self.start_group = 0
 
             # Create submodel_stack
             self.total.generate_submodel_stack()
+
+            if self.creationmode == 'group':
+                self.total.generate_groups()
+                group_index = self.total.calc_group_index()
+                prefix = 'Group ' + str(group_index+1) + ' '
+                #print self.total.group_pieces
+                suffix = str(self.total.total_inventory(self.total.group_pieces[group_index]))
+            else:
+                prefix = ''
+                suffix = ''
 
             if winsize == 'full':
                 self.window_size_full()
@@ -2507,11 +2458,11 @@ class MainScreen(object):
                 self.window_size(None, (1, 1))
 
             if self.total.frame == 0:
-                self.status_bar.set_text('Title Page')
+                self.status_bar.set_text(prefix + 'Title Page')
             elif self.total.frame < self.total.instruction_start:
-                self.status_bar.set_text('Pose ' + str(self.total.frame))
+                self.status_bar.set_text(prefix + 'Pose ' + str(self.total.frame))
             else:
-                self.status_bar.set_text('Frame ' + str(self.total.frame - self.total.instruction_start + 1))
+                self.status_bar.set_text(prefix + 'Frame ' + str(self.total.frame - self.total.instruction_start + 1) + ' ' + suffix)
 
     def instructions_draft(self, widget = None, value = 1):
         """
@@ -2533,11 +2484,21 @@ class MainScreen(object):
         sizes = reduce(lambda x, y: x + y,
                        map(lambda z: z['size'][0],
                            self.total.instructions))
-        sizes_pose = sizes[:self.total.instruction_start]
-        sizes_instruction = sizes[self.total.instruction_start:]
+        if self.creationmode == 'group':
+            last_frame = len(self.total.instructions) - 1
+            local_sizes = [sizes[:self.total.instruction_start]]
+            groups = self.total.groups + [last_frame+1]
+            for group_index in range(len(groups)-1):
+                start_index = groups[group_index]
+                end_index = groups[group_index+1]
+                local_sizes.append(sizes[start_index:end_index])
+        else:
+            local_sizes = [sizes[:self.total.instruction_start],
+                           sizes[self.total.instruction_start:]]
+        #print 'local_sizes', local_sizes
         frame_index = 1
         retval = []
-        for sizes in [sizes_pose, sizes_instruction]:
+        for sizes in local_sizes:
             while frame_index < len(sizes):
                 layouts = ['f', 'qqqq', 'qqh', 'hqq', 'hh', 'qh', 'qqq', 'hq',
                            'qq', 'q', 'h']
@@ -2557,7 +2518,7 @@ class MainScreen(object):
         """
         return len(self.page_layouts()) + 2
 
-    def generate_instructions(self, widget, filename = None, scale = 1.0):
+    def generate_instructions(self, widget, filename=None, scale=1.0, pages=['front', 'joining', 'frames', 'combined', 'back'], custom_inventory={}):
         """
         Generates an instruction set
         """
@@ -2576,9 +2537,12 @@ class MainScreen(object):
         else:
             if not filename:
                 base, ext = os.path.splitext(self.current_filename)
-                filename = base + '.pdf'
-            instructions.generate_instructions(self, share_directory, filename, scale)
-            
+                if self.creationmode == 'group':
+                    suffix = '_group'
+                else:
+                    suffix = ''
+                filename = base + suffix + '.pdf'
+            instructions.generate_instructions(self, share_directory, filename, scale, pages, custom_inventory)
 
         base_pieces.draw_future_parts = 1
         self.image_type = 'screen'
@@ -2786,7 +2750,7 @@ class MainScreen(object):
                                         break
                                 entry_label = entry_label[1:]
                             if not exclusive:
-                                entry.append_text(entry_label)
+                                entry.append_text(self.name2alias.get(entry_label, entry_label))
                         entry.set_active(entry_options.index(part.configure[count]))
                         entry.connect('changed', combo_changed, count, entries, dialog)
                         table.attach(label, 0, 1, count, count+1)
@@ -2841,7 +2805,7 @@ class MainScreen(object):
         else:
             if self.creationmode == 'modelling':
                 self.total.selected = range(len(self.total.netlist))
-            elif self.creationmode == 'instructions': # Select remainder
+            elif self.creationmode == 'instructions' or self.creationmode == 'group': # Select remainder
                 if self.total.frame >= self.total.instruction_start: # in frames
                     select_flag = np.ones(len(self.total.netlist), np.uint8)
                     select_flag[self.total.old_parts] = 0
@@ -2943,7 +2907,7 @@ class MainScreen(object):
         if len(self.total.selected) == 0:
             self.status_bar.set_text('No rotate.  Nothing selected.')
         else:
-            if self.creationmode == 'instructions':
+            if self.creationmode == 'instructions' or self.creationmode == 'group':
                 if self.total.frame < self.total.instruction_start:
                     self.mode = 'rotate_region'
                     self.status_bar.set_text('rotate region')
@@ -3047,6 +3011,11 @@ class MainScreen(object):
         """
         if self.creationmode == 'instructions':
             self.toggle_frame(None, 0, 1) # Save current
+            self.total.individual_instructions = copy.deepcopy(self.total.instructions)
+        if self.creationmode == 'group':
+            self.toggle_frame(None, 0, 1) # Save current
+            self.total.group_instructions = copy.deepcopy(self.total.instructions)
+            
         if self.current_filename == '':
             saveas = True
         dialog = gtk.FileChooserDialog(title=None,action=gtk.FILE_CHOOSER_ACTION_SAVE, buttons=(gtk.STOCK_CANCEL,gtk.RESPONSE_CANCEL,gtk.STOCK_SAVE,gtk.RESPONSE_OK))
@@ -3633,7 +3602,7 @@ class MainScreen(object):
                     self.redisplay = 'draw'
                     self.glarea.queue_draw()
                     
-                elif self.creationmode == 'instructions':
+                elif self.creationmode == 'instructions' or self.creationmode == 'group':
                     dmirror = 200.0
                     dmagnify = 200.0
                     max_dist = 100.0
@@ -3664,14 +3633,14 @@ class MainScreen(object):
                     multiple = 0
 
                 creation_selection_allowed = 0
-                if self.creationmode == 'instructions':
+                if self.creationmode == 'instructions' or self.creationmode == 'group':
                     unselectable = self.total.old_parts + self.total.hidden_parts
                     creation_selection_allowed = (self.total.frame >= self.total.instruction_start) and (self.total.submodel != -1) and (len(self.total.netlist) > len(unselectable))
 
                 if (len(self.total.netlist) > 0) and (self.creationmode == 'modelling' or creation_selection_allowed):
                     nearest_part_indices = np.argsort(self.distance3d(np.array(map(lambda x: x.center, self.total.netlist)), pt_near, pt_far))
                     count = 0
-                    if self.creationmode == 'instructions':
+                    if self.creationmode == 'instructions' or self.creationmode == 'group':
                         while nearest_part_indices[count] in unselectable:
                             count = count + 1
                     netlist_index = nearest_part_indices[count]
@@ -3687,7 +3656,7 @@ class MainScreen(object):
                     self.redisplay = 'draw'
                     self.glarea.queue_draw()
 
-                elif self.creationmode == 'instructions' and self.total.frame < self.total.instruction_start and len(self.total.regions) > 1:
+                elif (self.creationmode == 'instructions' or self.creationmode == 'group') and self.total.frame < self.total.instruction_start and len(self.total.regions) > 1:
                     moving_region = np.argsort(self.distance3d(self.total.region_centers, pt_near, pt_far))
                     if moving_region[0] == self.total.region_fixed:
                         moving_region = moving_region[1]
@@ -3838,7 +3807,8 @@ class MainScreen(object):
                 self.endy = event.y
                 if dx == 0.0 and dy == 0.0:
                     return
-                angle = int(round(math.degrees(vector_math.angle_normal(vector_math.normalize(np.array((dx, dy)))))))
+                #angle = int(round(math.degrees(vector_math.angle_normal(vector_math.normalize(np.array((dx, dy)))))))
+                angle = round(math.degrees(vector_math.angle_normal(vector_math.normalize(np.array((dx, dy))))), 1)
                 if angle != self.total.region_rotates[self.total.selected[0]]:
                     self.total.region_rotates[self.total.selected[0]] = angle
                     self.last_time = event.time
